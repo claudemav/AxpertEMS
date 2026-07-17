@@ -1,0 +1,2 @@
+DOMAIN="axpertems"
+DEFAULT_SCAN_INTERVAL=2

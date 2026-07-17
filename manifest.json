@@ -1,0 +1,10 @@
+{
+  "domain": "axpertems",
+  "name": "AxpertEMS",
+  "version": "2.0.0-dev",
+  "documentation": "https://github.com/yourname/axpertems",
+  "requirements": [],
+  "codeowners": ["@yourname"],
+  "config_flow": true,
+  "iot_class": "local_polling"
+}
