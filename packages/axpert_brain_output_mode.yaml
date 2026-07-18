@@ -1,0 +1,116 @@
+# =====================================================================
+# AXPERT BRAIN — Choix du mode de sortie (E2C / BATTERIE)
+# =====================================================================
+
+input_boolean:
+
+  axpert_max_battery_mode:
+    name: Axpert Mode Max Batterie
+    icon: mdi:battery-charging-100
+
+  axpert_manual_output_mode:
+    name: Axpert Mode de sortie manuel
+    icon: mdi:hand-back-right
+
+input_select:
+
+  axpert_ems_mode:
+    name: Axpert EMS Mode
+    icon: mdi:brain
+    options:
+      - NORMAL
+      - VACANCES
+    initial: NORMAL
+
+automation:
+
+  - alias: "Axpert Brain — Mode de sortie"
+    id: axpert_brain_output_mode
+    mode: queued
+    max: 5
+    max_exceeded: silent
+
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.axpert_deficit_solaire
+      - trigger: state
+        entity_id: binary_sensor.axpert_grid_down
+      - trigger: state
+        entity_id: sensor.axpert_battery_capacity_filtered
+      - trigger: state
+        entity_id: input_select.axpert_ems_mode
+      - trigger: state
+        entity_id: sensor.tele_puissance
+      - trigger: state
+        entity_id: input_boolean.axpert_max_battery_mode
+      - trigger: state
+        entity_id: input_boolean.axpert_evening_decline
+      - trigger: state
+        entity_id: input_boolean.axpert_manual_output_mode
+      - trigger: time_pattern
+        minutes: "/1"
+
+    conditions:
+      - condition: template
+        value_template: >
+          {{ not is_state('input_boolean.axpert_manual_output_mode', 'on') }}
+      - condition: template
+        value_template: >
+          {{ ['sensor.debarras_maison_tension_reseau',
+              'sensor.debarras_maison_puissance_pv',
+              'sensor.debarras_maison_puissance_sortie',
+              'sensor.axpert_battery_capacity_filtered']
+             | map('states')
+             | select('in', ['unavailable', 'unknown', none])
+             | list | length == 0 }}
+
+    variables:
+      current_mode: "{{ states('select.debarras_maison_mode_de_sortie') }}"
+      grid_down: "{{ is_state('binary_sensor.axpert_grid_down', 'on') }}"
+      grid_up: "{{ not grid_down }}"
+      deficit: "{{ is_state('binary_sensor.axpert_deficit_solaire', 'on') }}"
+      battery_capacity: "{{ states('sensor.axpert_battery_capacity_filtered')|float(0) }}"
+      soc_threshold: "{{ states('sensor.debarras_maison_axpert_config_soc_threshold')|float(35) }}"
+      battery_critical_threshold: "{{ states('sensor.debarras_maison_axpert_config_battery_critical_threshold')|float(20) }}"
+      battery_soc_ok: "{{ battery_capacity > soc_threshold }}"
+      vacances: "{{ states('input_select.axpert_ems_mode') == 'VACANCES' }}"
+      tele_power_low: "{{ states('sensor.tele_puissance')|float(999) < 10 }}"
+      max_battery_mode: "{{ is_state('input_boolean.axpert_max_battery_mode', 'on') }}"
+      max_battery_blocks_e2c: "{{ max_battery_mode and battery_capacity > battery_critical_threshold }}"
+      evening_decline: "{{ is_state('input_boolean.axpert_evening_decline', 'on') }}"
+      night_start_str: >
+        {% set raw = states('sensor.debarras_maison_axpert_config_night_start') %}
+        {{ raw if raw not in ['unknown', 'unavailable', none, ''] else '23:00' }}
+      sun_below_horizon: "{{ is_state('sun.sun', 'below_horizon') }}"
+      night_restore_window: >
+        {% set night_start = strptime(night_start_str, '%H:%M').time() %}
+        {{ now().time() >= night_start
+           or (sun_below_horizon and now().time() < strptime('12:00', '%H:%M').time()) }}
+
+    actions:
+      - choose:
+
+          - conditions: >
+              {{ night_restore_window and battery_soc_ok
+                 and current_mode != 'BATTERIE'
+                 and (not vacances or tele_power_low) }}
+            sequence:
+              - action: select.select_option
+                target: { entity_id: select.debarras_maison_mode_de_sortie }
+                data: { option: BATTERIE }
+
+          - conditions: >
+              {{ not night_restore_window and not max_battery_blocks_e2c
+                 and deficit and grid_up and current_mode != 'E2C' }}
+            sequence:
+              - action: select.select_option
+                target: { entity_id: select.debarras_maison_mode_de_sortie }
+                data: { option: E2C }
+
+          - conditions: >
+              {{ not deficit and (current_mode not in ['BATTERIE', 'E2C']
+                 or (current_mode == 'E2C' and not evening_decline)) }}
+            sequence:
+              - action: select.select_option
+                target: { entity_id: select.debarras_maison_mode_de_sortie }
+                data: { option: BATTERIE }

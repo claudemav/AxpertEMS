@@ -1,0 +1,32 @@
+# =====================================================================
+# AXPERT BRAIN — Confirmation du déficit solaire (débounce configurable)
+#
+# Sépare le signal BRUT (axpert_derived.yaml, driver matériel, sans
+# délai) du signal CONFIRMÉ (ici, dépend de config_deficit_delay_on/off,
+# réglables via Configurer AxpertEMS SANS redémarrage). Garde le même
+# nom "Axpert Deficit Solaire" qu'avant.
+# =====================================================================
+
+template:
+  - trigger:
+      - trigger: state
+        entity_id: binary_sensor.axpert_deficit_solaire_brut
+        to: "on"
+        for:
+          minutes: "{{ states('sensor.debarras_maison_axpert_config_deficit_delay_on')|int(10) }}"
+      - trigger: state
+        entity_id: binary_sensor.axpert_deficit_solaire_brut
+        to: "off"
+        for:
+          minutes: "{{ states('sensor.debarras_maison_axpert_config_deficit_delay_off')|int(5) }}"
+      - trigger: homeassistant
+        event: start
+    binary_sensor:
+      - name: "Axpert Deficit Solaire"
+        unique_id: axpert_deficit_solaire
+        state: >
+          {% if trigger.platform == 'homeassistant' %}
+            {{ is_state('binary_sensor.axpert_deficit_solaire_brut', 'on') }}
+          {% else %}
+            {{ trigger.to_state.state == 'on' }}
+          {% endif %}

@@ -1,0 +1,238 @@
+# =====================================================================
+# AXPERT BRAIN — Délestage / Restauration des charges
+#
+# Charges pilotées via Labels HA (pas d'édition de ce fichier pour
+# ajouter une prise) :
+#   - "delestage_tier1"  → coupée en premier
+#   - "delestage_tier2"  → coupée seulement si tout le tier1 est éteint
+#   - "delestage_tier3"  → réservé, coupé en dernier
+#
+# Verrou manuel par charge : input_boolean.axpert_manual_lock_<object_id>.
+# Si absent pour une charge donnée, elle est considérée comme jamais
+# verrouillée (comportement par défaut sûr).
+#
+# Délai de restauration par tier configurable via
+#   sensor.debarras_maison_axpert_config_restore_delay_tier1/2/3
+# Défauts si absents : 180 / 5 / 5.
+# =====================================================================
+
+automation:
+
+  - alias: "Axpert Brain — Délestage et restauration"
+    id: axpert_brain_shedding
+    mode: queued
+    max: 5
+    max_exceeded: silent
+
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.axpert_deficit_solaire
+        for:
+          seconds: 20
+      - trigger: state
+        entity_id: binary_sensor.axpert_grid_down
+        for:
+          seconds: 20
+      - trigger: time_pattern
+        minutes: "/1"
+      - trigger: state
+        entity_id: timer.axpert_shedding_pause
+        to: "idle"
+
+    conditions:
+      - condition: template
+        value_template: >
+          {{ ['sensor.debarras_maison_tension_reseau',
+              'sensor.debarras_maison_puissance_pv',
+              'sensor.debarras_maison_puissance_sortie',
+              'sensor.axpert_battery_capacity_filtered',
+              'binary_sensor.axpert_deficit_solaire',
+              'binary_sensor.axpert_grid_down']
+             | map('states')
+             | select('in', ['unavailable', 'unknown', none])
+             | list | length == 0 }}
+
+    variables:
+      grid_down: "{{ is_state('binary_sensor.axpert_grid_down', 'on') }}"
+      grid_up: "{{ not grid_down }}"
+      deficit: "{{ is_state('binary_sensor.axpert_deficit_solaire', 'on') }}"
+      battery_status: "{{ states('sensor.axpert_battery_status') }}"
+      battery_ok: "{{ battery_status in ['En charge', 'Repos'] }}"
+      battery_capacity: "{{ states('sensor.axpert_battery_capacity_filtered')|float(0) }}"
+
+      soc_threshold: "{{ states('sensor.debarras_maison_axpert_config_soc_threshold')|float(35) }}"
+
+      # Seuil dédié au délestage diurne : si la batterie est au-dessus,
+      # on NE DÉLESTE PAS même si déficit + réseau absent (cas du 18/07
+      # ~10h40 : 57-67% SOC, avant 15h30, PV encore présent — le
+      # délestage n'aurait pas dû se déclencher). Retombe sur
+      # soc_threshold si le capteur dédié n'existe pas.
+      soc_threshold_delestage: >
+        {% set raw = states('sensor.debarras_maison_axpert_config_soc_threshold_delestage') %}
+        {{ raw | float(soc_threshold) if raw not in ['unknown', 'unavailable', none, ''] else soc_threshold }}
+
+      night_start_str: >
+        {% set raw = states('sensor.debarras_maison_axpert_config_night_start') %}
+        {{ raw if raw not in ['unknown', 'unavailable', none, ''] else '23:00' }}
+      sun_below_horizon: "{{ is_state('sun.sun', 'below_horizon') }}"
+
+      night_restore_ok: >
+        {% set night_start = strptime(night_start_str, '%H:%M').time() %}
+        {{ now().time() >= night_start
+           or (sun_below_horizon and now().time() < strptime('12:00', '%H:%M').time()) }}
+      night_restore_active: "{{ night_restore_ok and battery_capacity > soc_threshold }}"
+
+      shed_needed: "{{ grid_down and deficit and battery_capacity < soc_threshold_delestage }}"
+      restore_needed: "{{ grid_up or (not deficit and battery_ok) }}"
+
+      # Construction dynamique des charges à partir des Labels HA, avec
+      # progress_entity_id (marqueur "commande en cours") pour rendre la
+      # détection de verrou manuel fiable, cf axpert_brain_manual_lock.yaml.
+      loads: >
+        {% set ns = namespace(items=[]) %}
+        {% for tier_num, label_id, default_delay in [
+             (1, 'delestage_tier1', 180),
+             (2, 'delestage_tier2', 5),
+             (3, 'delestage_tier3', 5)
+           ] %}
+          {% for ent in label_entities(label_id) %}
+            {% if ent.startswith('switch.') %}
+              {% set delay_cfg = states('sensor.debarras_maison_axpert_config_restore_delay_tier' ~ tier_num) %}
+              {% set delay = delay_cfg | float(default_delay) if delay_cfg not in ['unknown', 'unavailable', none, ''] else default_delay %}
+              {% set ns.items = ns.items + [{
+                   'entity_id': ent,
+                   'tier': tier_num,
+                   'restore_delay': delay,
+                   'lock_entity_id': 'input_boolean.axpert_manual_lock_' ~ ent.split('.')[1],
+                   'progress_entity_id': 'input_boolean.axpert_command_in_progress_' ~ ent.split('.')[1]
+              }] %}
+            {% endif %}
+          {% endfor %}
+        {% endfor %}
+        {{ ns.items }}
+
+      tier1_all_off: >
+        {% set t1 = loads | selectattr('tier', 'eq', 1) | list %}
+        {{ t1 | length > 0 and t1 | rejectattr('entity_id', 'is_state', 'on') | list | length == t1 | length }}
+
+      shedding_paused: "{{ is_state('timer.axpert_shedding_pause', 'active') }}"
+      tier1_shed_allowed: "{{ shed_needed and not night_restore_active and not shedding_paused }}"
+
+    actions:
+
+      # ---------------------------------------------------------------
+      # Délestage tier 1
+      # ---------------------------------------------------------------
+      - if:
+          - condition: template
+            value_template: "{{ tier1_shed_allowed }}"
+        then:
+          - repeat:
+              for_each: "{{ loads | selectattr('tier', 'eq', 1) | list }}"
+              sequence:
+                - if:
+                    - condition: template
+                      value_template: "{{ is_state(repeat.item.entity_id, 'on') }}"
+                  then:
+                    - action: input_boolean.turn_on
+                      target:
+                        entity_id: "{{ repeat.item.progress_entity_id }}"
+                    - action: switch.turn_off
+                      target:
+                        entity_id: "{{ repeat.item.entity_id }}"
+                    - delay: "00:00:03"
+                    - action: input_boolean.turn_off
+                      target:
+                        entity_id: "{{ repeat.item.progress_entity_id }}"
+
+      # ---------------------------------------------------------------
+      # Délestage tier 2 : seulement si le déficit persiste et que TOUT
+      # le tier 1 est déjà (ou vient d'être) coupé.
+      # ---------------------------------------------------------------
+      - if:
+          - condition: template
+            value_template: "{{ shed_needed and deficit and tier1_all_off and not shedding_paused }}"
+        then:
+          - repeat:
+              for_each: "{{ loads | selectattr('tier', 'eq', 2) | list }}"
+              sequence:
+                - if:
+                    - condition: template
+                      value_template: "{{ is_state(repeat.item.entity_id, 'on') }}"
+                  then:
+                    - action: input_boolean.turn_on
+                      target:
+                        entity_id: "{{ repeat.item.progress_entity_id }}"
+                    - action: switch.turn_off
+                      target:
+                        entity_id: "{{ repeat.item.entity_id }}"
+                    - delay: "00:00:03"
+                    - action: input_boolean.turn_off
+                      target:
+                        entity_id: "{{ repeat.item.progress_entity_id }}"
+
+      # ---------------------------------------------------------------
+      # Délestage tier 3 : seulement si tier 1 ET tier 2 sont déjà éteints.
+      # ---------------------------------------------------------------
+      - variables:
+          tier2_all_off: >
+            {% set t2 = loads | selectattr('tier', 'eq', 2) | list %}
+            {{ t2 | length == 0 or (t2 | rejectattr('entity_id', 'is_state', 'on') | list | length == t2 | length) }}
+      - if:
+          - condition: template
+            value_template: "{{ shed_needed and deficit and tier1_all_off and tier2_all_off and not shedding_paused }}"
+        then:
+          - repeat:
+              for_each: "{{ loads | selectattr('tier', 'eq', 3) | list }}"
+              sequence:
+                - if:
+                    - condition: template
+                      value_template: "{{ is_state(repeat.item.entity_id, 'on') }}"
+                  then:
+                    - action: input_boolean.turn_on
+                      target:
+                        entity_id: "{{ repeat.item.progress_entity_id }}"
+                    - action: switch.turn_off
+                      target:
+                        entity_id: "{{ repeat.item.entity_id }}"
+                    - delay: "00:00:03"
+                    - action: input_boolean.turn_off
+                      target:
+                        entity_id: "{{ repeat.item.progress_entity_id }}"
+
+      # ---------------------------------------------------------------
+      # Restauration réactive. Recheck complet après le délai (le SOC,
+      # le réseau, le déficit et la pause ont pu changer entre-temps).
+      # ---------------------------------------------------------------
+      - if:
+          - condition: template
+            value_template: "{{ restore_needed and not shed_needed }}"
+        then:
+          - repeat:
+              for_each: "{{ loads }}"
+              sequence:
+                - if:
+                    - condition: template
+                      value_template: >
+                        {{ is_state(repeat.item.entity_id, 'off')
+                           and not is_state(repeat.item.lock_entity_id, 'on') }}
+                  then:
+                    - delay:
+                        seconds: "{{ repeat.item.restore_delay }}"
+                    - condition: template
+                      value_template: >
+                        {{ is_state(repeat.item.entity_id, 'off')
+                           and not is_state(repeat.item.lock_entity_id, 'on')
+                           and not is_state('timer.axpert_shedding_pause', 'active')
+                           and (not is_state('binary_sensor.axpert_grid_down', 'on')
+                                or not is_state('binary_sensor.axpert_deficit_solaire', 'on')) }}
+                    - action: input_boolean.turn_on
+                      target:
+                        entity_id: "{{ repeat.item.progress_entity_id }}"
+                    - action: switch.turn_on
+                      target:
+                        entity_id: "{{ repeat.item.entity_id }}"
+                    - delay: "00:00:03"
+                    - action: input_boolean.turn_off
+                      target:
+                        entity_id: "{{ repeat.item.progress_entity_id }}"

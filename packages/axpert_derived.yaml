@@ -1,0 +1,122 @@
+# =====================================================================
+# AXPERT DERIVED — Calculs dérivés uniquement
+# =====================================================================
+
+sensor:
+
+  - platform: filter
+    name: Axpert PV Power Filtered
+    unique_id: axpert_pv_power_filtered
+    entity_id: sensor.debarras_maison_puissance_pv
+    filters:
+      - filter: outlier
+        window_size: 4
+        radius: 50.0
+
+  - platform: filter
+    name: Axpert Output Power Filtered
+    unique_id: axpert_output_power_filtered
+    entity_id: sensor.debarras_maison_puissance_sortie
+    filters:
+      - filter: outlier
+        window_size: 4
+        radius: 50.0
+
+  # SOC lissé — utilisé par axpert_brain_output_mode, axpert_brain_shedding
+  # et axpert_brain_night_restore. Batterie vieillissante -> le SOC brut
+  # de l'onduleur varie fort sous charge ; une moyenne temporelle est plus
+  # pertinente qu'un simple anti-glitch.
+  # VÉRIFIE que sensor.debarras_maison_batterie est bien un % (0-100).
+  - platform: filter
+    name: Axpert Battery Capacity Filtered
+    unique_id: axpert_battery_capacity_filtered
+    entity_id: sensor.debarras_maison_batterie
+    filters:
+      - filter: time_simple_moving_average
+        window_size:
+          minutes: 5
+
+template:
+
+  - sensor:
+
+      - name: Axpert Battery Charge Power
+        unique_id: axpert_battery_charge_power
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+        state: >
+          {{
+            states('sensor.debarras_maison_tension_batterie')|float(0)
+            *
+            states('sensor.debarras_maison_courant_de_charge_batterie')|float(0)
+          }}
+
+      - name: Axpert Battery Discharge Power
+        unique_id: axpert_battery_discharge_power
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+        state: >
+          {{
+            states('sensor.debarras_maison_tension_batterie')|float(0)
+            *
+            states('sensor.debarras_maison_courant_de_decharge_batterie')|float(0)
+          }}
+
+      - name: Axpert Grid Load Power
+        unique_id: axpert_grid_load_power
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+        state: >
+          {% if states('select.debarras_maison_mode_de_sortie') != 'E2C' %}
+            0
+          {% else %}
+            {% set load = states('sensor.debarras_maison_puissance_sortie')|float(0) %}
+            {% set pv = states('sensor.debarras_maison_puissance_pv')|float(0) %}
+            {% set batt =
+              states('sensor.debarras_maison_courant_de_decharge_batterie')|float(0)
+              * states('sensor.debarras_maison_tension_batterie')|float(0)
+            %}
+            {{ [load - pv - batt, 0] | max }}
+          {% endif %}
+
+      - name: Axpert Grid Charge Power
+        unique_id: axpert_grid_charge_power
+        unit_of_measurement: "W"
+        state: >
+          {% set charge = states('sensor.axpert_battery_charge_power')|float(0) %}
+          {% set pv = states('sensor.debarras_maison_puissance_pv')|float(0) %}
+          {{ [charge - pv, 0] | max }}
+
+      - name: Etat Batterie
+        unique_id: axpert_battery_status
+        icon: mdi:battery
+        state: >
+          {% set charge = states('sensor.debarras_maison_courant_de_charge_batterie')|float(0) %}
+          {% set discharge = states('sensor.debarras_maison_courant_de_decharge_batterie')|float(0) %}
+          {% if charge > 1 %}
+            En charge
+          {% elif discharge > 1 %}
+            En décharge
+          {% else %}
+            Repos
+          {% endif %}
+
+  - binary_sensor:
+
+      - name: Axpert Grid Down
+        unique_id: axpert_grid_down
+        state: "{{ states('sensor.debarras_maison_tension_reseau')|float(999) < 1 }}"
+        delay_on:
+          seconds: 30
+        delay_off:
+          seconds: 15
+
+      - name: Axpert Deficit Solaire Brut
+        unique_id: axpert_deficit_solaire_brut
+        state: >
+          {% set pv = states('sensor.axpert_pv_power_filtered')|float(0) %}
+          {% set output = states('sensor.axpert_output_power_filtered')|float(0) %}
+          {{ pv < output }}

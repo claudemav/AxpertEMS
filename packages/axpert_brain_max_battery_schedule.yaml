@@ -1,0 +1,114 @@
+# =====================================================================
+# AXPERT BRAIN — Mode Max Batterie + déclin du soir
+#
+#   23h -> config_end_time (15h30 par défaut) : Max Batterie actif.
+#   config_end_time -> 1er déficit confirmé : reste actif SANS coupure
+#     forcée (voulu : maximiser l'usage du solaire tant qu'il n'y a pas
+#     de déficit réel).
+#   1er déficit confirmé après config_end_time : Max Batterie coupé +
+#     déclin du soir activé (sticky E2C dès ce moment).
+#   Coucher du soleil : filet de sécurité si aucun déficit n'a encore
+#     eu lieu.
+#
+# NOTE : input_boolean.axpert_max_battery_mode et axpert_manual_output_mode
+# sont définis dans axpert_brain_output_mode.yaml — ne PAS les redéfinir
+# ici (packages HA : une entité définie deux fois lève une erreur).
+# =====================================================================
+
+input_boolean:
+
+  axpert_evening_decline:
+    name: Axpert Déclin du soir (interne)
+    icon: mdi:weather-sunset-down
+
+input_datetime:
+
+  axpert_max_battery_end_time:
+    name: Axpert Fin de fenêtre Max Batterie (réseau autorisé en appoint dès, si déficit)
+    has_date: false
+    has_time: true
+    initial: "15:30:00"
+
+automation:
+
+  - alias: "Axpert Brain — Mode Max Batterie / déclin du soir"
+    id: axpert_brain_max_battery_schedule
+    mode: single
+
+    triggers:
+      - trigger: time_pattern
+        minutes: "/1"
+      - trigger: state
+        entity_id: binary_sensor.axpert_deficit_solaire
+        to: "on"
+      - trigger: sun
+        event: sunset
+      - trigger: homeassistant
+        event: start
+
+    variables:
+      # Garde-fou contre la race condition au démarrage : au trigger
+      # "homeassistant: event: start", input_datetime peut ne pas encore
+      # avoir fini de charger son état -> states() retourne None ->
+      # | as_datetime plante. On passe par une chaîne intermédiaire
+      # (même schéma que night_start_str ailleurs) avec repli sur 15:30.
+      end_time_str: >
+        {% set raw = states('input_datetime.axpert_max_battery_end_time') %}
+        {{ raw if raw not in ['unknown', 'unavailable', none, ''] else '15:30:00' }}
+      end_time: "{{ strptime(end_time_str, '%H:%M:%S').time() }}"
+      after_end: "{{ now().time() >= end_time }}"
+      sun_below: "{{ is_state('sun.sun', 'below_horizon') }}"
+      deficit_now: "{{ is_state('binary_sensor.axpert_deficit_solaire', 'on') }}"
+      night_start_str: >
+        {% set raw = states('sensor.debarras_maison_axpert_config_night_start') %}
+        {{ raw if raw not in ['unknown', 'unavailable', none, ''] else '23:00' }}
+      is_night_start_now: "{{ now().strftime('%H:%M') == night_start_str }}"
+
+    actions:
+      - choose:
+
+          - conditions: "{{ trigger.platform == 'homeassistant' }}"
+            sequence:
+              - if:
+                  - condition: template
+                    value_template: "{{ not after_end }}"
+                then:
+                  - action: input_boolean.turn_on
+                    target: { entity_id: input_boolean.axpert_max_battery_mode }
+                  - action: input_boolean.turn_off
+                    target: { entity_id: input_boolean.axpert_evening_decline }
+                else:
+                  - if:
+                      - condition: template
+                        value_template: "{{ sun_below or deficit_now }}"
+                    then:
+                      - action: input_boolean.turn_off
+                        target: { entity_id: input_boolean.axpert_max_battery_mode }
+                      - action: input_boolean.turn_on
+                        target: { entity_id: input_boolean.axpert_evening_decline }
+                    else:
+                      - action: input_boolean.turn_on
+                        target: { entity_id: input_boolean.axpert_max_battery_mode }
+                      - action: input_boolean.turn_off
+                        target: { entity_id: input_boolean.axpert_evening_decline }
+
+          - conditions: "{{ trigger.platform == 'time_pattern' and is_night_start_now }}"
+            sequence:
+              - action: input_boolean.turn_on
+                target: { entity_id: input_boolean.axpert_max_battery_mode }
+              - action: input_boolean.turn_off
+                target: { entity_id: input_boolean.axpert_evening_decline }
+
+          - conditions: "{{ trigger.platform == 'state' and after_end and sun_below == false }}"
+            sequence:
+              - action: input_boolean.turn_off
+                target: { entity_id: input_boolean.axpert_max_battery_mode }
+              - action: input_boolean.turn_on
+                target: { entity_id: input_boolean.axpert_evening_decline }
+
+          - conditions: "{{ trigger.platform == 'sun' }}"
+            sequence:
+              - action: input_boolean.turn_off
+                target: { entity_id: input_boolean.axpert_max_battery_mode }
+              - action: input_boolean.turn_on
+                target: { entity_id: input_boolean.axpert_evening_decline }
