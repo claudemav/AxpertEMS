@@ -1,0 +1,16 @@
+send_raw_command:
+  name: Envoyer une commande brute (diagnostic)
+  description: >
+    Envoie une commande PI30 brute à l'onduleur et retourne la réponse
+    telle quelle (utile pour identifier un format de commande divergent
+    sur un clone, ex: MCHGC40 vs MCHGC010). Réservé au diagnostic —
+    n'importe quelle commande valide du protocole peut être envoyée,
+    y compris des commandes d'écriture.
+  fields:
+    command:
+      name: Commande
+      description: "Commande PI30 sans CRC ni CR (ex: MCHGC40, QPIGS, QMCHGCR)"
+      required: true
+      example: "MCHGC40"
+      selector:
+        text:
