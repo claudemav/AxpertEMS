@@ -1,0 +1,37 @@
+# =====================================================================
+# AXPERT BRAIN — Priorité de charge jour/nuit
+# =====================================================================
+
+automation:
+
+  - alias: "Axpert Brain — Priorité de charge jour/nuit"
+    id: axpert_brain_charger_priority
+    mode: single
+
+    triggers:
+      - trigger: state
+        entity_id: sun.sun
+      - trigger: time_pattern
+        minutes: "/5"
+
+    variables:
+      is_day: "{{ is_state('sun.sun', 'above_horizon') }}"
+      current_priority: "{{ states('select.debarras_maison_axpert_charger_priority') }}"
+
+    actions:
+      - choose:
+          - conditions: "{{ is_day and current_priority != 'SOLAIRE_SEUL' }}"
+            sequence:
+              - action: select.select_option
+                target:
+                  entity_id: select.debarras_maison_axpert_charger_priority
+                data:
+                  option: SOLAIRE_SEUL
+
+          - conditions: "{{ not is_day and current_priority != 'SOLAIRE' }}"
+            sequence:
+              - action: select.select_option
+                target:
+                  entity_id: select.debarras_maison_axpert_charger_priority
+                data:
+                  option: SOLAIRE

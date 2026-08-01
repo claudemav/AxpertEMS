@@ -1,0 +1,23 @@
+# =====================================================================
+# AXPERT METERS — Compteurs jour/mois
+#
+# CORRIGÉ : un utility_meter doit sourcer une énergie cumulative (kWh
+# croissant), pas une puissance instantanée (W). L'ancienne version
+# sourçait sensor.debarras_maison_puissance_pv (W) directement — un
+# utility_meter sur une puissance ne fait qu'un miroir avec remise à
+# zéro, il n'accumule rien de sensé. Les vraies sources d'énergie
+# (sensor.axpert_pv_energy, sensor.axpert_load_energy) sont créées par
+# l'intégration sensor.integration dans axpert_energy_dashboard.yaml.
+# =====================================================================
+
+utility_meter:
+
+  axpert_pv_energy_daily:
+    source: sensor.axpert_pv_energy
+    cycle: daily
+    name: "Axpert PV Energy - Aujourd'hui"
+
+  axpert_load_energy_daily:
+    source: sensor.axpert_load_energy
+    cycle: daily
+    name: "Axpert Load Energy - Aujourd'hui"

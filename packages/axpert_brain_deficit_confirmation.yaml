@@ -1,0 +1,40 @@
+# =====================================================================
+# AXPERT BRAIN — Confirmation du déficit solaire (débounce configurable)
+#
+# CORRIGÉ (point #3) : l'ancienne version recopiait le signal BRUT
+# directement au démarrage HA, sans attendre le délai configuré —
+# risque de basculer immédiatement sur E2C si le redémarrage survient
+# pendant un relevé instable.
+#
+# Retrait pur et simple du trigger "homeassistant: event: start" : les
+# entités template DÉCLENCHÉES PAR TRIGGER (bloc "trigger:" en tête)
+# restaurent automatiquement leur dernier état confirmé au redémarrage
+# de HA (comportement natif, comme n'importe quelle entité restaurable)
+# tant qu'aucun trigger explicite ne vient l'écraser immédiatement.
+# En retirant ce trigger de démarrage, l'entité conserve simplement sa
+# dernière valeur confirmée jusqu'au prochain vrai changement du signal
+# brut (avec son délai plein) — plus sûr, sans automation supplémentaire.
+#
+# LIMITE CONNUE ET ACCEPTÉE : changer les délais dans Configurer pendant
+# que le signal brut est déjà "on" ne relance pas le compteur en cours —
+# la nouvelle valeur ne s'applique qu'au prochain changement du signal
+# brut. Comportement inhérent au "for:" de HA, pas corrigé ici (fonction
+# secondaire, complexité disproportionnée pour la corriger proprement).
+# =====================================================================
+
+template:
+  - trigger:
+      - trigger: state
+        entity_id: binary_sensor.axpert_deficit_solaire_brut
+        to: "on"
+        for:
+          minutes: "{{ states('sensor.debarras_maison_axpert_config_deficit_delay_on')|int(10) }}"
+      - trigger: state
+        entity_id: binary_sensor.axpert_deficit_solaire_brut
+        to: "off"
+        for:
+          minutes: "{{ states('sensor.debarras_maison_axpert_config_deficit_delay_off')|int(5) }}"
+    binary_sensor:
+      - name: "Axpert Deficit Solaire"
+        unique_id: axpert_deficit_solaire
+        state: "{{ trigger.to_state.state == 'on' }}"

@@ -1,0 +1,84 @@
+# =====================================================================
+# AXPERT BRAIN — Verrous manuels (frigo/télé)
+#
+# Détection par marqueur "commande en cours" explicite, PAS par
+# context.user_id (peu fiable : bouton physique — absent ici —, Tuya,
+# automation tierce, reconnexion après coupure ne portent souvent aucun
+# user_id exploitable). Axpert Brain active le marqueur juste avant
+# chaque switch.turn_on/off et le désactive 3s après. Tout changement
+# d'état observé HORS de cette fenêtre est donc forcément externe →
+# considéré manuel.
+# =====================================================================
+
+input_boolean:
+
+  axpert_manual_lock_frigo:
+    name: Axpert Verrou manuel Frigo
+    icon: mdi:lock
+
+  axpert_manual_lock_tele:
+    name: Axpert Verrou manuel Télé
+    icon: mdi:lock
+
+  axpert_command_in_progress_frigo:
+    name: Axpert Brain — Commande frigo en cours (interne)
+    icon: mdi:cog-sync
+
+  axpert_command_in_progress_tele:
+    name: Axpert Brain — Commande télé en cours (interne)
+    icon: mdi:cog-sync
+
+automation:
+
+  - alias: "Axpert Brain — Détection action manuelle Frigo"
+    id: axpert_brain_manual_detect_frigo
+    mode: queued
+    triggers:
+      - trigger: state
+        entity_id: switch.frigo
+    conditions:
+      - condition: template
+        value_template: "{{ not is_state('input_boolean.axpert_command_in_progress_frigo', 'on') }}"
+      - condition: template
+        value_template: >
+          {{ trigger.from_state is not none and trigger.to_state is not none
+             and trigger.from_state.state != trigger.to_state.state
+             and trigger.to_state.state in ['on', 'off'] }}
+    actions:
+      - action: input_boolean.turn_{{ 'on' if trigger.to_state.state == 'off' else 'off' }}
+        target:
+          entity_id: input_boolean.axpert_manual_lock_frigo
+
+  - alias: "Axpert Brain — Détection action manuelle Télé"
+    id: axpert_brain_manual_detect_tele
+    mode: queued
+    triggers:
+      - trigger: state
+        entity_id: switch.tele
+    conditions:
+      - condition: template
+        value_template: "{{ not is_state('input_boolean.axpert_command_in_progress_tele', 'on') }}"
+      - condition: template
+        value_template: >
+          {{ trigger.from_state is not none and trigger.to_state is not none
+             and trigger.from_state.state != trigger.to_state.state
+             and trigger.to_state.state in ['on', 'off'] }}
+    actions:
+      - action: input_boolean.turn_{{ 'on' if trigger.to_state.state == 'off' else 'off' }}
+        target:
+          entity_id: input_boolean.axpert_manual_lock_tele
+
+  - alias: "Axpert Brain — Sécurité command_in_progress bloqué"
+    id: axpert_brain_command_in_progress_timeout
+    triggers:
+      - trigger: state
+        entity_id:
+          - input_boolean.axpert_command_in_progress_frigo
+          - input_boolean.axpert_command_in_progress_tele
+        to: "on"
+        for:
+          seconds: 30
+    actions:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: "{{ trigger.entity_id }}"

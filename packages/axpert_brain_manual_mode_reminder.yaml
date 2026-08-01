@@ -1,0 +1,50 @@
+# =====================================================================
+# AXPERT BRAIN — Rappel interrupteurs "override" oubliés
+#
+# Si un toggle de la liste reste activé au-delà de son seuil, rappel
+# persistant — répété toutes les heures tant qu'il n'est pas désactivé.
+# Ne désactive JAMAIS l'interrupteur à ta place, uniquement un rappel.
+# =====================================================================
+
+automation:
+
+  - alias: "Axpert Brain — Rappel interrupteurs oubliés"
+    id: axpert_brain_forgotten_toggle_reminder
+    mode: single
+
+    triggers:
+      - trigger: time_pattern
+        hours: "/1"
+
+    variables:
+      toggles:
+        - entity_id: input_boolean.axpert_manual_output_mode
+          label: "Mode manuel du choix de source"
+          threshold_hours: 2
+        - entity_id: input_boolean.axpert_manual_lock_frigo
+          label: "Verrou manuel Frigo"
+          threshold_hours: 6
+        - entity_id: input_boolean.axpert_manual_lock_tele
+          label: "Verrou manuel Télé"
+          threshold_hours: 6
+
+    actions:
+      - repeat:
+          for_each: "{{ toggles }}"
+          sequence:
+            - if:
+                - condition: template
+                  value_template: >
+                    {% set st = states[repeat.item.entity_id] %}
+                    {{ st is not none and st.state == 'on'
+                       and (now() - st.last_changed).total_seconds()
+                           >= repeat.item.threshold_hours * 3600 }}
+              then:
+                - action: persistent_notification.create
+                  data:
+                    title: "⚠️ Axpert — {{ repeat.item.label }} toujours actif"
+                    message: >
+                      {{ repeat.item.label }} ({{ repeat.item.entity_id }}) est
+                      actif depuis {{ now() - states[repeat.item.entity_id].last_changed }}.
+                      Si c'était temporaire, pense à le désactiver.
+                    notification_id: "axpert_reminder_{{ repeat.item.entity_id }}"

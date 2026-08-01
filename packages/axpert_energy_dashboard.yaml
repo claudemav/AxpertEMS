@@ -1,0 +1,68 @@
+# =====================================================================
+# AXPERT ENERGY DASHBOARD — Intégration puissance -> énergie (kWh)
+#
+# CORRECTIF : device_class/state_class ne sont PAS des options valides
+# pour la plateforme sensor.integration (Home Assistant les rejette au
+# chargement). Le contournement documenté par la communauté HA est de les
+# fixer via homeassistant: customize:, en dessous.
+# =====================================================================
+
+sensor:
+
+  - platform: integration
+    source: sensor.debarras_maison_puissance_pv
+    name: Axpert PV Energy
+    unique_id: axpert_pv_energy
+    unit_prefix: k
+    round: 2
+    method: trapezoidal
+
+  - platform: integration
+    source: sensor.debarras_maison_puissance_sortie
+    name: Axpert Load Energy
+    unique_id: axpert_load_energy
+    unit_prefix: k
+    round: 2
+    method: trapezoidal
+
+  - platform: integration
+    source: sensor.axpert_battery_charge_power
+    name: Axpert Battery Charge Energy
+    unique_id: axpert_battery_charge_energy
+    unit_prefix: k
+    round: 2
+    method: trapezoidal
+
+  - platform: integration
+    source: sensor.axpert_battery_discharge_power
+    name: Axpert Battery Discharge Energy
+    unique_id: axpert_battery_discharge_energy
+    unit_prefix: k
+    round: 2
+    method: trapezoidal
+
+  - platform: integration
+    source: sensor.axpert_grid_load_power
+    name: Axpert Grid Load Energy
+    unique_id: axpert_grid_load_energy
+    unit_prefix: k
+    round: 2
+    method: trapezoidal
+
+homeassistant:
+  customize:
+    sensor.axpert_pv_energy:
+      device_class: energy
+      state_class: total_increasing
+    sensor.axpert_load_energy:
+      device_class: energy
+      state_class: total_increasing
+    sensor.axpert_battery_charge_energy:
+      device_class: energy
+      state_class: total_increasing
+    sensor.axpert_battery_discharge_energy:
+      device_class: energy
+      state_class: total_increasing
+    sensor.axpert_grid_load_energy:
+      device_class: energy
+      state_class: total_increasing

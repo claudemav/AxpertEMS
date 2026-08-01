@@ -1,0 +1,146 @@
+# =====================================================================
+# AXPERT BRAIN — Mode Max Batterie + déclin du soir
+#
+#   23h -> config_end_time (15h30 par défaut) : Max Batterie actif.
+#   config_end_time -> 1er déficit confirmé : reste actif SANS coupure
+#     forcée.
+#   1er déficit confirmé après config_end_time : Max Batterie coupé +
+#     déclin du soir activé.
+#   Coucher du soleil : filet de sécurité si aucun déficit n'a encore
+#     eu lieu.
+#
+# CORRIGÉ : les comparaisons horaires se font maintenant sur des CHAÎNES
+# "HH:MM:SS" normalisées, plus sur des objets datetime.time. Home
+# Assistant tente de préserver le "type natif" d'une variable
+# d'automation quand le template est une expression Jinja unique — mais
+# ce mécanisme ne fonctionne que pour les littéraux Python (nombres,
+# chaînes, booléens, listes, dicts). Un datetime.time n'est PAS un
+# littéral valide : la préservation échoue silencieusement et la
+# variable devient en réalité une CHAÎNE ("23:00:00"), pas un objet
+# time. Comparer ensuite now().time() (un vrai objet time) à cette
+# chaîne lève TypeError. Les chaînes "HH:MM:SS" à largeur fixe se
+# comparent correctement de façon lexicographique (même résultat qu'une
+# comparaison chronologique) et survivent sans problème à la
+# sérialisation entre variables.
+#
+# NOTE : input_boolean.axpert_max_battery_mode et axpert_manual_output_mode
+# sont définis dans axpert_brain_output_mode.yaml — ne PAS les redéfinir
+# ici.
+# =====================================================================
+
+input_boolean:
+
+  axpert_evening_decline:
+    name: Axpert Déclin du soir (interne)
+    icon: mdi:weather-sunset-down
+
+input_datetime:
+
+  axpert_max_battery_end_time:
+    name: Axpert Fin de fenêtre Max Batterie (réseau autorisé en appoint dès, si déficit)
+    has_date: false
+    has_time: true
+    initial: "15:30:00"
+
+automation:
+
+  - alias: "Axpert Brain — Mode Max Batterie / déclin du soir"
+    id: axpert_brain_max_battery_schedule
+    mode: single
+
+    triggers:
+      - trigger: time_pattern
+        minutes: "/1"
+      - trigger: state
+        entity_id: binary_sensor.axpert_deficit_solaire
+        to: "on"
+      - trigger: sun
+        event: sunset
+      - trigger: homeassistant
+        event: start
+      - trigger: time
+        at: input_datetime.axpert_max_battery_end_time
+        id: max_battery_end
+
+    variables:
+      # "HH:MM" brut, tel que configuré — utilisé pour l'égalité exacte
+      # (déclenchement à 23h précisément, comparaison chaîne == chaîne).
+      night_start_hhmm: >
+        {% set raw = states('sensor.debarras_maison_axpert_config_night_start') %}
+        {{ raw if raw not in ['unknown', 'unavailable', none, ''] else '23:00' }}
+
+      # "HH:MM:SS" normalisé — pour les comparaisons d'intervalle.
+      night_start_str: >
+        {{ night_start_hhmm if night_start_hhmm.count(':') == 2 else night_start_hhmm ~ ':00' }}
+
+      end_time_str: >
+        {% set raw = states('input_datetime.axpert_max_battery_end_time') %}
+        {% set val = raw if raw not in ['unknown', 'unavailable', none, ''] else '15:30:00' %}
+        {{ val if val.count(':') == 2 else val ~ ':00' }}
+
+      now_str: "{{ now().strftime('%H:%M:%S') }}"
+
+      # Fenêtre Max Batterie, traverse minuit : vraie de night_start (23h)
+      # jusqu'à end_time (15h30) LE LENDEMAIN. Comparaison de chaînes
+      # "HH:MM:SS" à largeur fixe = comparaison chronologique correcte.
+      max_battery_window: "{{ now_str >= night_start_str or now_str < end_time_str }}"
+
+      sun_below: "{{ is_state('sun.sun', 'below_horizon') }}"
+      deficit_now: "{{ is_state('binary_sensor.axpert_deficit_solaire', 'on') }}"
+      is_night_start_now: "{{ now().strftime('%H:%M') == night_start_hhmm }}"
+
+    actions:
+      - choose:
+
+          - conditions: "{{ trigger.platform == 'homeassistant' }}"
+            sequence:
+              - if:
+                  - condition: template
+                    value_template: "{{ max_battery_window }}"
+                then:
+                  - action: input_boolean.turn_on
+                    target: { entity_id: input_boolean.axpert_max_battery_mode }
+                  - action: input_boolean.turn_off
+                    target: { entity_id: input_boolean.axpert_evening_decline }
+                else:
+                  - if:
+                      - condition: template
+                        value_template: "{{ sun_below or deficit_now }}"
+                    then:
+                      - action: input_boolean.turn_off
+                        target: { entity_id: input_boolean.axpert_max_battery_mode }
+                      - action: input_boolean.turn_on
+                        target: { entity_id: input_boolean.axpert_evening_decline }
+                    else:
+                      - action: input_boolean.turn_on
+                        target: { entity_id: input_boolean.axpert_max_battery_mode }
+                      - action: input_boolean.turn_off
+                        target: { entity_id: input_boolean.axpert_evening_decline }
+
+          - conditions: "{{ trigger.platform == 'time_pattern' and is_night_start_now }}"
+            sequence:
+              - action: input_boolean.turn_on
+                target: { entity_id: input_boolean.axpert_max_battery_mode }
+              - action: input_boolean.turn_off
+                target: { entity_id: input_boolean.axpert_evening_decline }
+
+          - conditions: "{{ trigger.id == 'max_battery_end' and deficit_now }}"
+            sequence:
+              - action: input_boolean.turn_off
+                target: { entity_id: input_boolean.axpert_max_battery_mode }
+              - action: input_boolean.turn_on
+                target: { entity_id: input_boolean.axpert_evening_decline }
+
+          - conditions: "{{ trigger.platform == 'state' and not max_battery_window }}"
+            sequence:
+              - action: input_boolean.turn_off
+                target: { entity_id: input_boolean.axpert_max_battery_mode }
+              - action: input_boolean.turn_on
+                target: { entity_id: input_boolean.axpert_evening_decline }
+
+          - conditions: "{{ trigger.platform == 'sun' }}"
+            sequence:
+              - action: input_boolean.turn_off
+                target: { entity_id: input_boolean.axpert_max_battery_mode }
+              - action: input_boolean.turn_on
+                target: { entity_id: input_boolean.axpert_evening_decline }
