@@ -1,0 +1,68 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connexion à l'onduleur Axpert",
+        "data": {
+          "port": "Port série (ex: /dev/ttyUSB0)",
+          "baudrate": "Vitesse (bauds)",
+          "scan_interval": "Intervalle de rafraîchissement (secondes)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossible de communiquer avec l'onduleur sur ce port. Vérifie le câble, le port, et qu'aucun autre programme ne l'utilise en même temps."
+    },
+    "abort": {
+      "already_configured": "Ce port série est déjà configuré."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "menu_options": {
+          "thresholds": "Seuils (SOC, délais, horaires)",
+          "loads_menu": "Charges pilotées (délestage)"
+        }
+      },
+      "thresholds": {
+        "title": "Seuils du moteur de décision",
+        "data": {
+          "battery_soc_threshold": "SOC batterie confortable (%)",
+          "battery_critical_threshold": "SOC batterie critique — Mode Max Batterie ne cède à E2C qu'en dessous (%)",
+          "deficit_delay_on_minutes": "Délai avant de confirmer un déficit (minutes)",
+          "deficit_delay_off_minutes": "Délai avant de confirmer la fin d'un déficit (minutes)",
+          "night_start": "Nuit certaine à partir de (HH:MM, filet de sécurité en plus du coucher de soleil réel)"
+        }
+      },
+      "loads_menu": {
+        "menu_options": {
+          "add_load": "Ajouter une charge",
+          "remove_load": "Retirer une charge",
+          "init": "Retour"
+        }
+      },
+      "add_load": {
+        "title": "Ajouter une charge délestable",
+        "data": {
+          "entity_id": "Interrupteur (switch)",
+          "name": "Nom affiché",
+          "tier": "Palier (1 = coupé en premier, 2 = coupé seulement si insuffisant)",
+          "restore_delay": "Délai avant réenclenchement (secondes)"
+        }
+      },
+      "remove_load": {
+        "title": "Retirer une charge",
+        "data": {
+          "entity_id": "Charge à retirer"
+        }
+      }
+    },
+    "error": {
+      "already_exists": "Cette charge est déjà dans la liste."
+    },
+    "abort": {
+      "no_loads": "Aucune charge configurée à retirer."
+    }
+  }
+}
