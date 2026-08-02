@@ -79,15 +79,16 @@ class AxpertCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.supported_max_charging_currents = await self.hass.async_add_executor_job(
                 self._fetch_supported_max_charging_currents
             )
+        except AxpertError as err:
+            _LOGGER.warning("Max charging current tiers not read (QMCHGCR): %s", err)
+
+        try:
             self.supported_max_utility_charging_currents = await self.hass.async_add_executor_job(
                 self._fetch_supported_max_utility_charging_currents
             )
         except AxpertError as err:
-            _LOGGER.warning("Current tiers not read (QMCHGCR/QMUCHGCR): %s", err)
+            _LOGGER.warning("Max utility charging current tiers not read (QMUCHGCR): %s", err)
 
-        # Notifie les entités déjà créées (select.py), dont les options
-        # peuvent avoir été construites avec la liste de repli avant la
-        # fin de cette découverte (exécutée en tâche de fond).
         self.async_update_listeners()
 
     def _fetch_supported_max_charging_currents(self) -> list[int]:
