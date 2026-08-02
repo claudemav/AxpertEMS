@@ -50,78 +50,78 @@ class AxpertSensorDescription(SensorEntityDescription):
 
 SENSOR_DESCRIPTIONS: tuple[AxpertSensorDescription, ...] = (
     AxpertSensorDescription(
-        key="grid_voltage", name="Axpert Grid Voltage",
+        key="grid_voltage", translation_key="grid_voltage",
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
         device_class=SensorDeviceClass.VOLTAGE, state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data["qpigs"].get("ac_input_voltage"),
     ),
     AxpertSensorDescription(
-        key="output_voltage", name="Axpert Output Voltage",
+        key="output_voltage", translation_key="output_voltage",
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
         device_class=SensorDeviceClass.VOLTAGE, state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data["qpigs"].get("ac_output_voltage"),
     ),
     AxpertSensorDescription(
-        key="output_power", name="Axpert Output Power",
+        key="output_power", translation_key="output_power",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER, state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data["qpigs"].get("ac_output_active_power"),
     ),
     AxpertSensorDescription(
-        key="output_load", name="Axpert Output Load",
+        key="output_load", translation_key="output_load",
         native_unit_of_measurement=PERCENTAGE, state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data["qpigs"].get("ac_output_load"),
     ),
     AxpertSensorDescription(
-        key="battery_voltage", name="Axpert Battery Voltage",
+        key="battery_voltage", translation_key="battery_voltage",
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
         device_class=SensorDeviceClass.VOLTAGE, state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data["qpigs"].get("battery_voltage"),
     ),
     AxpertSensorDescription(
-        key="battery_capacity", name="Axpert Battery Capacity",
+        key="battery_capacity", translation_key="battery_capacity",
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.BATTERY, state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data["qpigs"].get("battery_capacity"),
     ),
     AxpertSensorDescription(
-        key="battery_charging_current", name="Axpert Battery Charging Current",
+        key="battery_charging_current", translation_key="battery_charging_current",
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         device_class=SensorDeviceClass.CURRENT, state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data["qpigs"].get("battery_charging_current"),
     ),
     AxpertSensorDescription(
-        key="battery_discharge_current", name="Axpert Battery Discharge Current",
+        key="battery_discharge_current", translation_key="battery_discharge_current",
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         device_class=SensorDeviceClass.CURRENT, state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data["qpigs"].get("battery_discharge_current"),
     ),
     AxpertSensorDescription(
-        key="pv_voltage", name="Axpert PV Voltage",
+        key="pv_voltage", translation_key="pv_voltage",
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
         device_class=SensorDeviceClass.VOLTAGE, state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data["qpigs"].get("pv_input_voltage"),
     ),
     AxpertSensorDescription(
-        key="pv_current", name="Axpert PV Current",
+        key="pv_current", translation_key="pv_current",
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         device_class=SensorDeviceClass.CURRENT, state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data["qpigs"].get("pv_input_current_for_battery"),
     ),
     AxpertSensorDescription(
-        key="pv_power", name="Axpert PV Power",
+        key="pv_power", translation_key="pv_power",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER, state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data["qpigs"].get("pv_input_power"),
     ),
     AxpertSensorDescription(
-        key="inverter_temperature", name="Axpert Temperature",
+        key="inverter_temperature", translation_key="inverter_temperature",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE, state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data["qpigs"].get("inverter_heat_sink_temperature"),
     ),
     AxpertSensorDescription(
-        key="device_mode", name="Axpert Mode", icon="mdi:state-machine",
+        key="device_mode", translation_key="device_mode", icon="mdi:state-machine",
         value_fn=lambda data: data["qmod"].get("device_mode"),
     ),
 )
@@ -133,59 +133,56 @@ class AxpertConfigSensorDescription(SensorEntityDescription):
     default: Any
 
 
-# EntityCategory.CONFIG est INTERDIT sur le domaine sensor par HA (une
-# entité "config" doit être modifiable — number/select/switch — pas un
-# capteur en lecture seule). DIAGNOSTIC est la catégorie correcte ici.
 CONFIG_SENSOR_DESCRIPTIONS: tuple[AxpertConfigSensorDescription, ...] = (
     AxpertConfigSensorDescription(
-        key="config_soc_threshold", name="Axpert Config SOC Threshold",
+        key="config_soc_threshold", translation_key="config_soc_threshold",
         icon="mdi:battery-heart-variant", native_unit_of_measurement=PERCENTAGE,
         entity_category=EntityCategory.DIAGNOSTIC,
         option_key=CONF_SOC_THRESHOLD, default=DEFAULT_OPTIONS[CONF_SOC_THRESHOLD],
     ),
     AxpertConfigSensorDescription(
-        key="config_battery_critical_threshold", name="Axpert Config Battery Critical Threshold",
+        key="config_battery_critical_threshold", translation_key="config_battery_critical_threshold",
         icon="mdi:battery-alert", native_unit_of_measurement=PERCENTAGE,
         entity_category=EntityCategory.DIAGNOSTIC,
         option_key=CONF_BATTERY_CRITICAL_THRESHOLD, default=DEFAULT_OPTIONS[CONF_BATTERY_CRITICAL_THRESHOLD],
     ),
     AxpertConfigSensorDescription(
-        key="config_night_start", name="Axpert Config Night Start",
+        key="config_night_start", translation_key="config_night_start",
         icon="mdi:clock-time-eleven", entity_category=EntityCategory.DIAGNOSTIC,
         option_key=CONF_NIGHT_START, default=DEFAULT_OPTIONS[CONF_NIGHT_START],
     ),
     AxpertConfigSensorDescription(
-        key="config_deficit_delay_on", name="Axpert Config Deficit Delay On",
+        key="config_deficit_delay_on", translation_key="config_deficit_delay_on",
         icon="mdi:timer-sand", native_unit_of_measurement=UnitOfTime.MINUTES,
         entity_category=EntityCategory.DIAGNOSTIC,
         option_key=CONF_DEFICIT_DELAY_ON, default=DEFAULT_OPTIONS[CONF_DEFICIT_DELAY_ON],
     ),
     AxpertConfigSensorDescription(
-        key="config_deficit_delay_off", name="Axpert Config Deficit Delay Off",
+        key="config_deficit_delay_off", translation_key="config_deficit_delay_off",
         icon="mdi:timer-sand", native_unit_of_measurement=UnitOfTime.MINUTES,
         entity_category=EntityCategory.DIAGNOSTIC,
         option_key=CONF_DEFICIT_DELAY_OFF, default=DEFAULT_OPTIONS[CONF_DEFICIT_DELAY_OFF],
     ),
     AxpertConfigSensorDescription(
-        key="config_soc_threshold_delestage", name="Axpert Config SOC Threshold Delestage",
+        key="config_soc_threshold_shedding", translation_key="config_soc_threshold_shedding",
         icon="mdi:battery-arrow-down", native_unit_of_measurement=PERCENTAGE,
         entity_category=EntityCategory.DIAGNOSTIC,
         option_key=CONF_SOC_THRESHOLD_SHEDDING, default=DEFAULT_OPTIONS[CONF_SOC_THRESHOLD_SHEDDING],
     ),
     AxpertConfigSensorDescription(
-        key="config_restore_delay_tier1", name="Axpert Config Restore Delay Tier1",
+        key="config_restore_delay_tier1", translation_key="config_restore_delay_tier1",
         icon="mdi:timer-sand", native_unit_of_measurement=UnitOfTime.SECONDS,
         entity_category=EntityCategory.DIAGNOSTIC,
         option_key=CONF_RESTORE_DELAY_TIER1, default=DEFAULT_OPTIONS[CONF_RESTORE_DELAY_TIER1],
     ),
     AxpertConfigSensorDescription(
-        key="config_restore_delay_tier2", name="Axpert Config Restore Delay Tier2",
+        key="config_restore_delay_tier2", translation_key="config_restore_delay_tier2",
         icon="mdi:timer-sand", native_unit_of_measurement=UnitOfTime.SECONDS,
         entity_category=EntityCategory.DIAGNOSTIC,
         option_key=CONF_RESTORE_DELAY_TIER2, default=DEFAULT_OPTIONS[CONF_RESTORE_DELAY_TIER2],
     ),
     AxpertConfigSensorDescription(
-        key="config_restore_delay_tier3", name="Axpert Config Restore Delay Tier3",
+        key="config_restore_delay_tier3", translation_key="config_restore_delay_tier3",
         icon="mdi:timer-sand", native_unit_of_measurement=UnitOfTime.SECONDS,
         entity_category=EntityCategory.DIAGNOSTIC,
         option_key=CONF_RESTORE_DELAY_TIER3, default=DEFAULT_OPTIONS[CONF_RESTORE_DELAY_TIER3],
@@ -198,24 +195,26 @@ async def async_setup_entry(
 ) -> None:
     coordinator: AxpertCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     entities = [
-        AxpertSensor(coordinator, description) for description in SENSOR_DESCRIPTIONS
+        AxpertSensor(coordinator, entry, description) for description in SENSOR_DESCRIPTIONS
     ]
     entities.extend(
         AxpertConfigSensor(coordinator, entry, description)
         for description in CONFIG_SENSOR_DESCRIPTIONS
     )
-    entities.append(AxpertConsecutiveFailuresSensor(coordinator))
-    entities.append(AxpertLastSuccessSensor(coordinator))
-    entities.append(AxpertLastErrorSensor(coordinator))
-    entities.append(AxpertPartialErrorSensor(coordinator))
+    entities.append(AxpertConsecutiveFailuresSensor(coordinator, entry))
+    entities.append(AxpertLastSuccessSensor(coordinator, entry))
+    entities.append(AxpertLastErrorSensor(coordinator, entry))
+    entities.append(AxpertPartialErrorSensor(coordinator, entry))
     async_add_entities(entities)
 
 
 class AxpertSensor(AxpertEntity, SensorEntity):
     entity_description: AxpertSensorDescription
 
-    def __init__(self, coordinator: AxpertCoordinator, description: AxpertSensorDescription) -> None:
-        super().__init__(coordinator, description.key)
+    def __init__(
+        self, coordinator: AxpertCoordinator, entry: ConfigEntry, description: AxpertSensorDescription
+    ) -> None:
+        super().__init__(coordinator, entry, description.key)
         self.entity_description = description
 
     @property
@@ -229,9 +228,12 @@ class AxpertConfigSensor(AxpertEntity, SensorEntity):
     entity_description: AxpertConfigSensorDescription
 
     def __init__(
-        self, coordinator: AxpertCoordinator, entry: ConfigEntry, description: AxpertConfigSensorDescription,
+        self,
+        coordinator: AxpertCoordinator,
+        entry: ConfigEntry,
+        description: AxpertConfigSensorDescription,
     ) -> None:
-        super().__init__(coordinator, description.key)
+        super().__init__(coordinator, entry, description.key)
         self.entity_description = description
         self._entry = entry
 
@@ -243,17 +245,13 @@ class AxpertConfigSensor(AxpertEntity, SensorEntity):
 
 
 class AxpertConsecutiveFailuresSensor(AxpertDiagnosticEntity, SensorEntity):
-    """Nombre d'échecs consécutifs COMPLETS du cycle de poll (QPIGS),
-    remis à zéro à chaque succès. Distinct des échecs partiels QMOD/QPIRI
-    (voir Axpert Partial Error)."""
-
+    _attr_translation_key = "consecutive_failures"
     _attr_icon = "mdi:counter"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator: AxpertCoordinator) -> None:
-        super().__init__(coordinator, "consecutive_failures")
-        self._attr_name = "Axpert Consecutive Failures"
+    def __init__(self, coordinator: AxpertCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "consecutive_failures")
 
     @property
     def native_value(self) -> Any:
@@ -261,13 +259,13 @@ class AxpertConsecutiveFailuresSensor(AxpertDiagnosticEntity, SensorEntity):
 
 
 class AxpertLastSuccessSensor(AxpertDiagnosticEntity, SensorEntity):
+    _attr_translation_key = "last_success"
     _attr_device_class = SensorDeviceClass.TIMESTAMP
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:check-circle-outline"
 
-    def __init__(self, coordinator: AxpertCoordinator) -> None:
-        super().__init__(coordinator, "last_success")
-        self._attr_name = "Axpert Last Success"
+    def __init__(self, coordinator: AxpertCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "last_success")
 
     @property
     def native_value(self) -> Any:
@@ -275,35 +273,29 @@ class AxpertLastSuccessSensor(AxpertDiagnosticEntity, SensorEntity):
 
 
 class AxpertLastErrorSensor(AxpertDiagnosticEntity, SensorEntity):
-    """Dernière erreur ayant fait échouer le cycle GLOBAL de poll
-    (QPIGS). Vide dès que le cycle suivant réussit."""
-
+    _attr_translation_key = "last_error"
     _attr_icon = "mdi:alert-circle-outline"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, coordinator: AxpertCoordinator) -> None:
-        super().__init__(coordinator, "last_error")
-        self._attr_name = "Axpert Last Error"
+    def __init__(self, coordinator: AxpertCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "last_error")
 
     @property
     def native_value(self) -> Any:
-        return self.coordinator.last_error or "Aucune"
+        # None plutôt qu'une chaîne "Aucune" : convention HA pour un
+        # capteur diagnostic, évite de polluer l'historique d'une valeur
+        # traduite répétée. L'UI affiche déjà "—" pour un état vide.
+        return self.coordinator.last_error
 
 
 class AxpertPartialErrorSensor(AxpertDiagnosticEntity, SensorEntity):
-    """Résumé des sous-commandes (QMOD/QPIRI) actuellement en échec,
-    alors que le cycle global de poll (QPIGS) fonctionne — distinct de
-    Last Error, qui ne couvre que les échecs COMPLETS du cycle. Reste
-    non-vide tant qu'aucune nouvelle tentative de la commande concernée
-    n'a réussi, même si les cycles suivants réussissent globalement."""
-
+    _attr_translation_key = "partial_error"
     _attr_icon = "mdi:alert-circle-outline"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, coordinator: AxpertCoordinator) -> None:
-        super().__init__(coordinator, "partial_error")
-        self._attr_name = "Axpert Partial Error"
+    def __init__(self, coordinator: AxpertCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "partial_error")
 
     @property
     def native_value(self) -> Any:
-        return self.coordinator.partial_error or "Aucune"
+        return self.coordinator.partial_error

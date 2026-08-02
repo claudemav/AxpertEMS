@@ -1,11 +1,11 @@
 {
   "domain": "axpertems",
   "name": "AxpertEMS",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "codeowners": ["@claudemav"],
   "config_flow": true,
   "documentation": "https://github.com/claudemav/AxpertEMS",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/claudemav/AxpertEMS/issues",
-  "requirements": ["pyserial>=3.5"]
+  "requirements": ["pyserial>=3.5,<4"]
 }

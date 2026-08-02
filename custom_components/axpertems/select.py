@@ -34,21 +34,21 @@ async def async_setup_entry(
     coordinator: AxpertCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     async_add_entities(
         [
-            AxpertOutputModeSelect(coordinator),
-            AxpertChargerPrioritySelect(coordinator),
-            AxpertMaxChargingCurrentSelect(coordinator),
-            AxpertMaxUtilityChargingCurrentSelect(coordinator),
+            AxpertOutputModeSelect(coordinator, entry),
+            AxpertChargerPrioritySelect(coordinator, entry),
+            AxpertMaxChargingCurrentSelect(coordinator, entry),
+            AxpertMaxUtilityChargingCurrentSelect(coordinator, entry),
         ]
     )
 
 
 class AxpertOutputModeSelect(AxpertEntity, SelectEntity):
     _attr_options = OPTIONS
+    _attr_translation_key = "output_mode"
     _attr_icon = "mdi:transmission-tower"
 
-    def __init__(self, coordinator: AxpertCoordinator) -> None:
-        super().__init__(coordinator, "output_mode")
-        self._attr_name = "Axpert Output Mode"
+    def __init__(self, coordinator: AxpertCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "output_mode")
 
     @property
     def current_option(self) -> str | None:
@@ -62,17 +62,17 @@ class AxpertOutputModeSelect(AxpertEntity, SelectEntity):
             await self.coordinator.async_set_output_mode(option)
         except AxpertCommandRejectedError as err:
             raise HomeAssistantError(
-                f"L'onduleur a refusé le mode de sortie « {option} »."
+                f"Inverter rejected output mode '{option}'."
             ) from err
 
 
 class AxpertChargerPrioritySelect(AxpertEntity, SelectEntity):
     _attr_options = CHARGER_OPTIONS
+    _attr_translation_key = "charger_priority"
     _attr_icon = "mdi:battery-charging-100"
 
-    def __init__(self, coordinator: AxpertCoordinator) -> None:
-        super().__init__(coordinator, "charger_priority")
-        self._attr_name = "Axpert Charger Priority"
+    def __init__(self, coordinator: AxpertCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "charger_priority")
 
     @property
     def current_option(self) -> str | None:
@@ -86,16 +86,16 @@ class AxpertChargerPrioritySelect(AxpertEntity, SelectEntity):
             await self.coordinator.async_set_charger_priority(option)
         except AxpertCommandRejectedError as err:
             raise HomeAssistantError(
-                f"L'onduleur a refusé la priorité de charge « {option} »."
+                f"Inverter rejected charger priority '{option}'."
             ) from err
 
 
 class AxpertMaxChargingCurrentSelect(AxpertEntity, SelectEntity):
+    _attr_translation_key = "max_charging_current"
     _attr_icon = "mdi:current-dc"
 
-    def __init__(self, coordinator: AxpertCoordinator) -> None:
-        super().__init__(coordinator, "max_charging_current_select")
-        self._attr_name = "Axpert Max Charging Current"
+    def __init__(self, coordinator: AxpertCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "max_charging_current_select")
 
     @property
     def options(self) -> list[str]:
@@ -116,23 +116,18 @@ class AxpertMaxChargingCurrentSelect(AxpertEntity, SelectEntity):
         try:
             await self.coordinator.async_set_max_charging_current(int(option))
         except AxpertCommandRejectedError as err:
-            # NAK réel de l'onduleur (palier non accepté) : erreur
-            # attendue et informative pour l'utilisateur, pas une
-            # exception inattendue à laisser remonter brute jusqu'à
-            # l'UI (voir logs du 20/07, MCHGC010/020/030 rejetés).
             raise HomeAssistantError(
-                f"L'onduleur a refusé le courant de charge max {option}A "
-                f"(réponse NAK). Ce palier n'est peut-être pas supporté "
-                f"par ce modèle malgré la découverte QMCHGCR."
+                f"Inverter rejected max charging current {option}A (NAK). "
+                f"This tier may not be actually supported despite QMCHGCR discovery."
             ) from err
 
 
 class AxpertMaxUtilityChargingCurrentSelect(AxpertEntity, SelectEntity):
+    _attr_translation_key = "max_utility_charging_current"
     _attr_icon = "mdi:current-ac"
 
-    def __init__(self, coordinator: AxpertCoordinator) -> None:
-        super().__init__(coordinator, "max_utility_charging_current_select")
-        self._attr_name = "Axpert Max Utility Charging Current"
+    def __init__(self, coordinator: AxpertCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "max_utility_charging_current_select")
 
     @property
     def options(self) -> list[str]:
@@ -154,7 +149,5 @@ class AxpertMaxUtilityChargingCurrentSelect(AxpertEntity, SelectEntity):
             await self.coordinator.async_set_max_utility_charging_current(int(option))
         except AxpertCommandRejectedError as err:
             raise HomeAssistantError(
-                f"L'onduleur a refusé le courant de charge réseau max {option}A "
-                f"(réponse NAK). Ce palier n'est peut-être pas supporté "
-                f"par ce modèle malgré la découverte QMCHGCR."
+                f"Inverter rejected max utility charging current {option}A (NAK)."
             ) from err

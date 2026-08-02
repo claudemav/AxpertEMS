@@ -17,6 +17,7 @@ from .const import (
     CONF_BAUDRATE,
     CONF_DEFICIT_DELAY_OFF,
     CONF_DEFICIT_DELAY_ON,
+    CONF_NAME,
     CONF_NIGHT_START,
     CONF_PORT,
     CONF_RESTORE_DELAY_TIER1,
@@ -26,6 +27,7 @@ from .const import (
     CONF_SOC_THRESHOLD,
     CONF_SOC_THRESHOLD_SHEDDING,
     DEFAULT_BAUDRATE,
+    DEFAULT_NAME,
     DEFAULT_OPTIONS,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -34,11 +36,17 @@ from .exceptions import AxpertError
 
 _LOGGER = logging.getLogger(__name__)
 
+# Bauds classiquement supportés par les onduleurs PI30/Voltronic.
+SUPPORTED_BAUDRATES = [2400, 4800, 9600, 19200]
+
 STEP_USER_SCHEMA = vol.Schema(
     {
+        vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
         vol.Required(CONF_PORT, default="/dev/ttyUSB0"): str,
-        vol.Optional(CONF_BAUDRATE, default=DEFAULT_BAUDRATE): int,
-        vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
+        vol.Optional(CONF_BAUDRATE, default=DEFAULT_BAUDRATE): vol.In(SUPPORTED_BAUDRATES),
+        vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(
+            vol.Coerce(int), vol.Range(min=5, max=300)
+        ),
     }
 )
 
@@ -63,15 +71,17 @@ class AxpertEMSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     _test_connection, user_input[CONF_PORT], user_input[CONF_BAUDRATE]
                 )
             except AxpertError as err:
-                _LOGGER.debug("Échec de connexion pendant le config_flow : %s", err)
+                _LOGGER.debug("Connection failed during config_flow: %s", err)
                 errors["base"] = "cannot_connect"
             else:
                 return self.async_create_entry(
-                    title=f"Axpert ({user_input[CONF_PORT]})",
+                    title=user_input[CONF_NAME],
                     data=user_input,
                 )
 
-        return self.async_show_form(step_id="user", data_schema=STEP_USER_SCHEMA, errors=errors)
+        return self.async_show_form(
+            step_id="user", data_schema=STEP_USER_SCHEMA, errors=errors
+        )
 
     @staticmethod
     @callback
@@ -91,25 +101,33 @@ class AxpertEMSOptionsFlow(config_entries.OptionsFlow):
 
         schema = vol.Schema(
             {
-                vol.Optional(CONF_SOC_THRESHOLD, default=current[CONF_SOC_THRESHOLD]): vol.Coerce(float),
+                vol.Optional(
+                    CONF_SOC_THRESHOLD, default=current[CONF_SOC_THRESHOLD]
+                ): vol.All(vol.Coerce(float), vol.Range(min=0, max=100)),
                 vol.Optional(
                     CONF_BATTERY_CRITICAL_THRESHOLD, default=current[CONF_BATTERY_CRITICAL_THRESHOLD]
-                ): vol.Coerce(float),
-                vol.Optional(CONF_DEFICIT_DELAY_ON, default=current[CONF_DEFICIT_DELAY_ON]): vol.Coerce(int),
-                vol.Optional(CONF_DEFICIT_DELAY_OFF, default=current[CONF_DEFICIT_DELAY_OFF]): vol.Coerce(int),
-                vol.Optional(CONF_NIGHT_START, default=current[CONF_NIGHT_START]): str,
+                ): vol.All(vol.Coerce(float), vol.Range(min=0, max=100)),
+                vol.Optional(
+                    CONF_DEFICIT_DELAY_ON, default=current[CONF_DEFICIT_DELAY_ON]
+                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=120)),
+                vol.Optional(
+                    CONF_DEFICIT_DELAY_OFF, default=current[CONF_DEFICIT_DELAY_OFF]
+                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=120)),
+                vol.Optional(
+                    CONF_NIGHT_START, default=current[CONF_NIGHT_START]
+                ): vol.Match(r"^([01]\d|2[0-3]):([0-5]\d)$", msg="format_hhmm"),
                 vol.Optional(
                     CONF_SOC_THRESHOLD_SHEDDING, default=current[CONF_SOC_THRESHOLD_SHEDDING]
-                ): vol.Coerce(float),
+                ): vol.All(vol.Coerce(float), vol.Range(min=0, max=100)),
                 vol.Optional(
                     CONF_RESTORE_DELAY_TIER1, default=current[CONF_RESTORE_DELAY_TIER1]
-                ): vol.Coerce(int),
+                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=3600)),
                 vol.Optional(
                     CONF_RESTORE_DELAY_TIER2, default=current[CONF_RESTORE_DELAY_TIER2]
-                ): vol.Coerce(int),
+                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=3600)),
                 vol.Optional(
                     CONF_RESTORE_DELAY_TIER3, default=current[CONF_RESTORE_DELAY_TIER3]
-                ): vol.Coerce(int),
+                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=3600)),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

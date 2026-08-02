@@ -28,17 +28,17 @@ class AxpertBinarySensorDescription(BinarySensorEntityDescription):
 
 BINARY_SENSOR_DESCRIPTIONS: tuple[AxpertBinarySensorDescription, ...] = (
     AxpertBinarySensorDescription(
-        key="ac_charging", name="Axpert AC Charging",
+        key="ac_charging", translation_key="ac_charging",
         device_class=BinarySensorDeviceClass.BATTERY_CHARGING,
         value_fn=lambda data: data["qpigs"].get("is_ac_charging_on"),
     ),
     AxpertBinarySensorDescription(
-        key="scc_charging", name="Axpert SCC Charging",
+        key="scc_charging", translation_key="scc_charging",
         device_class=BinarySensorDeviceClass.BATTERY_CHARGING,
         value_fn=lambda data: data["qpigs"].get("is_scc_charging_on"),
     ),
     AxpertBinarySensorDescription(
-        key="load_on", name="Axpert Load On",
+        key="load_on", translation_key="load_on",
         device_class=BinarySensorDeviceClass.POWER,
         value_fn=lambda data: data["qpigs"].get("is_load_on"),
     ),
@@ -46,26 +46,17 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[AxpertBinarySensorDescription, ...] = (
 
 
 async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     coordinator: AxpertCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-
     entities = [
-        AxpertBinarySensor(coordinator, description)
+        AxpertBinarySensor(coordinator, entry, description)
         for description in BINARY_SENSOR_DESCRIPTIONS
     ]
-
-    entities.extend(
-        (
-            AxpertCommunicationBinarySensor(coordinator),
-            AxpertDataStaleBinarySensor(coordinator),
-            AxpertQmodStaleBinarySensor(coordinator),
-            AxpertQpiriStaleBinarySensor(coordinator),
-        )
-    )
-
+    entities.append(AxpertCommunicationBinarySensor(coordinator, entry))
+    entities.append(AxpertDataStaleBinarySensor(coordinator, entry))
+    entities.append(AxpertQmodStaleBinarySensor(coordinator, entry))
+    entities.append(AxpertQpiriStaleBinarySensor(coordinator, entry))
     async_add_entities(entities)
 
 
@@ -73,9 +64,12 @@ class AxpertBinarySensor(AxpertEntity, BinarySensorEntity):
     entity_description: AxpertBinarySensorDescription
 
     def __init__(
-        self, coordinator: AxpertCoordinator, description: AxpertBinarySensorDescription
+        self,
+        coordinator: AxpertCoordinator,
+        entry: ConfigEntry,
+        description: AxpertBinarySensorDescription,
     ) -> None:
-        super().__init__(coordinator, description.key)
+        super().__init__(coordinator, entry, description.key)
         self.entity_description = description
 
     @property
@@ -86,14 +80,12 @@ class AxpertBinarySensor(AxpertEntity, BinarySensorEntity):
 
 
 class AxpertCommunicationBinarySensor(AxpertDiagnosticEntity, BinarySensorEntity):
-    """ON = liaison série saine (dernier cycle réussi, données fraîches)."""
-
+    _attr_translation_key = "communication"
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, coordinator: AxpertCoordinator) -> None:
-        super().__init__(coordinator, "communication")
-        self._attr_name = "Axpert Communication"
+    def __init__(self, coordinator: AxpertCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "communication")
 
     @property
     def is_on(self) -> bool | None:
@@ -101,15 +93,12 @@ class AxpertCommunicationBinarySensor(AxpertDiagnosticEntity, BinarySensorEntity
 
 
 class AxpertDataStaleBinarySensor(AxpertDiagnosticEntity, BinarySensorEntity):
-    """ON = les valeurs affichées datent d'un cycle précédent (échec
-    transitoire GLOBAL en cours, dans la période de grâce)."""
-
+    _attr_translation_key = "data_stale"
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, coordinator: AxpertCoordinator) -> None:
-        super().__init__(coordinator, "data_stale")
-        self._attr_name = "Axpert Data Stale"
+    def __init__(self, coordinator: AxpertCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "data_stale")
 
     @property
     def is_on(self) -> bool | None:
@@ -117,17 +106,12 @@ class AxpertDataStaleBinarySensor(AxpertDiagnosticEntity, BinarySensorEntity):
 
 
 class AxpertQmodStaleBinarySensor(AxpertDiagnosticEntity, BinarySensorEntity):
-    """ON = le dernier mode onduleur (QMOD) affiché date d'une tentative
-    précédente réussie, la lecture la plus récente ayant échoué. Distinct
-    de Data Stale : le cycle global peut très bien avoir réussi (QPIGS
-    ok) alors que ce drapeau est actif."""
-
+    _attr_translation_key = "qmod_stale"
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, coordinator: AxpertCoordinator) -> None:
-        super().__init__(coordinator, "qmod_stale")
-        self._attr_name = "Axpert QMOD Stale"
+    def __init__(self, coordinator: AxpertCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "qmod_stale")
 
     @property
     def is_on(self) -> bool | None:
@@ -135,15 +119,12 @@ class AxpertQmodStaleBinarySensor(AxpertDiagnosticEntity, BinarySensorEntity):
 
 
 class AxpertQpiriStaleBinarySensor(AxpertDiagnosticEntity, BinarySensorEntity):
-    """ON = les réglages onduleur affichés (QPIRI) datent d'une lecture
-    précédente, la plus récente ayant échoué."""
-
+    _attr_translation_key = "qpiri_stale"
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, coordinator: AxpertCoordinator) -> None:
-        super().__init__(coordinator, "qpiri_stale")
-        self._attr_name = "Axpert QPIRI Stale"
+    def __init__(self, coordinator: AxpertCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "qpiri_stale")
 
     @property
     def is_on(self) -> bool | None:

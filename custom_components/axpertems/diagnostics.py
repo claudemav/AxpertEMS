@@ -18,6 +18,7 @@ async def async_get_config_entry_diagnostics(
 
     return {
         "entry_data": {
+            "name": entry.data.get("name"),
             "port": entry.data.get("port"),
             "baudrate": entry.data.get("baudrate"),
             "scan_interval": entry.data.get("scan_interval"),

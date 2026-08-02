@@ -1,29 +1,29 @@
 """Constantes AxpertEMS."""
 
-DOMAIN = "axpertems"
+from typing import Final
 
-CONF_PORT = "port"
-CONF_BAUDRATE = "baudrate"
-CONF_SCAN_INTERVAL = "scan_interval"
+DOMAIN: Final = "axpertems"
 
-DEFAULT_BAUDRATE = 2400
-DEFAULT_SCAN_INTERVAL = 30  # secondes
+CONF_PORT: Final = "port"
+CONF_BAUDRATE: Final = "baudrate"
+CONF_SCAN_INTERVAL: Final = "scan_interval"
+CONF_NAME: Final = "name"
 
-CONF_SOC_THRESHOLD = "battery_soc_threshold"
-CONF_BATTERY_CRITICAL_THRESHOLD = "battery_critical_threshold"
-CONF_DEFICIT_DELAY_ON = "deficit_delay_on_minutes"
-CONF_DEFICIT_DELAY_OFF = "deficit_delay_off_minutes"
-CONF_NIGHT_START = "night_start"
+DEFAULT_NAME: Final = "Axpert"
+DEFAULT_BAUDRATE: Final = 2400
+DEFAULT_SCAN_INTERVAL: Final = 30  # secondes
 
-# Ajoutés pour le point #7 : le YAML de délestage les référence depuis
-# plusieurs versions mais ils n'existaient nulle part côté intégration —
-# le YAML retombait silencieusement sur ses valeurs de repli.
-CONF_SOC_THRESHOLD_SHEDDING = "battery_soc_threshold_shedding"
-CONF_RESTORE_DELAY_TIER1 = "restore_delay_tier1_seconds"
-CONF_RESTORE_DELAY_TIER2 = "restore_delay_tier2_seconds"
-CONF_RESTORE_DELAY_TIER3 = "restore_delay_tier3_seconds"
+CONF_SOC_THRESHOLD: Final = "battery_soc_threshold"
+CONF_BATTERY_CRITICAL_THRESHOLD: Final = "battery_critical_threshold"
+CONF_DEFICIT_DELAY_ON: Final = "deficit_delay_on_minutes"
+CONF_DEFICIT_DELAY_OFF: Final = "deficit_delay_off_minutes"
+CONF_NIGHT_START: Final = "night_start"
+CONF_SOC_THRESHOLD_SHEDDING: Final = "battery_soc_threshold_shedding"
+CONF_RESTORE_DELAY_TIER1: Final = "restore_delay_tier1_seconds"
+CONF_RESTORE_DELAY_TIER2: Final = "restore_delay_tier2_seconds"
+CONF_RESTORE_DELAY_TIER3: Final = "restore_delay_tier3_seconds"
 
-DEFAULT_OPTIONS: dict = {
+DEFAULT_OPTIONS: Final[dict[str, int | float | str]] = {
     CONF_SOC_THRESHOLD: 35,
     CONF_BATTERY_CRITICAL_THRESHOLD: 20,
     CONF_DEFICIT_DELAY_ON: 10,

@@ -1,19 +1,4 @@
-"""Coordinator : unique propriétaire du port série, alimente toutes les entités.
-
-Gère une période de grâce pour les échecs transitoires COMPLETS (bruit
-RS232, micro-coupure) : les entités ne disparaissent plus pour un seul
-raté isolé — elles conservent la dernière valeur connue, marquée
-"vieillissante" via data_stale, et ne basculent en vraiment indisponible
-qu'après plusieurs échecs consécutifs ou si les données deviennent trop
-vieilles.
-
-Distinct de ça : un échec PARTIEL (QMOD ou QPIRI seuls, alors que QPIGS
-a réussi) est absorbé dans _poll() pour ne pas perdre les mesures
-critiques, mais est maintenant suivi séparément via qmod_stale/
-qpiri_stale/partial_error — sans quoi last_error/data_stale étaient
-remis à zéro par un cycle "globalement réussi" qui masquait pourtant un
-vrai problème sur une sous-commande.
-"""
+"""Coordinator : unique propriétaire du port série, alimente toutes les entités."""
 
 from __future__ import annotations
 
@@ -22,6 +7,7 @@ import time
 from datetime import timedelta
 from typing import Any
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
@@ -42,6 +28,7 @@ class AxpertCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def __init__(
         self,
         hass: HomeAssistant,
+        entry: ConfigEntry,
         port: str,
         baudrate: int,
         scan_interval: int,
@@ -49,9 +36,10 @@ class AxpertCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         super().__init__(
             hass,
             _LOGGER,
-            name=DOMAIN,
+            name=f"{DOMAIN}_{entry.entry_id}",
             update_interval=timedelta(seconds=scan_interval),
         )
+        self.entry = entry
         self._client = AxpertClient(port, baudrate=baudrate)
         self._port_open = False
 
@@ -64,17 +52,12 @@ class AxpertCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.supported_max_charging_currents: list[int] = []
         self.supported_max_utility_charging_currents: list[int] = []
 
-        # -- santé GLOBALE du cycle de poll (échec complet, période de grâce) --
         self.consecutive_failures: int = 0
         self.last_success: Any = None
         self.last_error: str | None = None
         self.data_stale: bool = False
         self._last_success_monotonic: float | None = None
 
-        # -- santé PARTIELLE : QMOD/QPIRI en échec alors que le cycle
-        # global a réussi (QPIGS ok). Persistent jusqu'à la prochaine
-        # tentative réussie de la commande concernée — pas remis à zéro
-        # juste parce que la commande n'était pas due ce cycle-ci.
         self.qmod_stale: bool = False
         self.qmod_last_error: str | None = None
         self.qpiri_stale: bool = False
@@ -82,12 +65,11 @@ class AxpertCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     @property
     def partial_error(self) -> str | None:
-        """Résumé lisible des sous-commandes en échec, ou None si tout est frais."""
         parts: list[str] = []
         if self.qmod_stale:
-            parts.append(f"QMOD ancien ({self.qmod_last_error or 'raison inconnue'})")
+            parts.append(f"QMOD stale ({self.qmod_last_error or 'unknown'})")
         if self.qpiri_stale:
-            parts.append(f"QPIRI ancien ({self.qpiri_last_error or 'raison inconnue'})")
+            parts.append(f"QPIRI stale ({self.qpiri_last_error or 'unknown'})")
         return "; ".join(parts) if parts else None
 
     async def async_fetch_supported_currents(self) -> None:
@@ -99,7 +81,7 @@ class AxpertCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self._client.get_supported_max_utility_charging_currents
             )
         except AxpertError as err:
-            _LOGGER.warning("Paliers de courant non lus (QMCHGCR/QMUCHGCR) : %s", err)
+            _LOGGER.warning("Current tiers not read (QMCHGCR/QMUCHGCR): %s", err)
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:
@@ -123,7 +105,7 @@ class AxpertCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ):
                 self.data_stale = True
                 _LOGGER.warning(
-                    "Échec série transitoire %s/%s, conservation des dernières données : %s",
+                    "Transient serial failure %s/%s, keeping last known data: %s",
                     self.consecutive_failures,
                     MAX_CONSECUTIVE_FAILURES,
                     err,
@@ -132,10 +114,6 @@ class AxpertCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             raise UpdateFailed(str(err)) from err
 
-        # Le cycle GLOBAL a réussi (QPIGS ok) — mais qmod_stale/qpiri_stale
-        # ont pu être positionnés à l'intérieur de _poll() si QMOD/QPIRI
-        # ont échoué isolément. On ne les touche PAS ici : ils reflètent
-        # leur propre état, indépendant de la réussite globale du cycle.
         self.consecutive_failures = 0
         self.last_error = None
         self.data_stale = False
@@ -148,16 +126,8 @@ class AxpertCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._client.open()
             self._port_open = True
 
-        # QPIGS : critique, à chaque cycle. Une erreur ici fait échouer
-        # tout le cycle (remonte vers _async_update_data), normal.
         qpigs = self._client.get_qpigs()
 
-        # QMOD : moins critique, lu moins souvent (60s). Une erreur
-        # PONCTUELLE ne fait plus échouer tout le cycle -> on garde le
-        # dernier mode connu, mais on marque qmod_stale=True et on
-        # conserve le message d'erreur, PERSISTANTS jusqu'à la prochaine
-        # tentative réussie (pas remis à zéro tant qu'aucune nouvelle
-        # tentative n'a eu lieu).
         if not self._qmod_cache or (time.monotonic() - self._last_qmod_fetch) > QMOD_REFRESH_SECONDS:
             try:
                 self._qmod_cache = self._client.get_qmod()
@@ -168,12 +138,10 @@ class AxpertCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.qmod_stale = True
                 self.qmod_last_error = str(err)
                 if not self._qmod_cache:
-                    _LOGGER.warning("QMOD indisponible (aucune valeur précédente) : %s", err)
+                    _LOGGER.warning("QMOD unavailable (no previous value): %s", err)
                 else:
-                    _LOGGER.debug("QMOD indisponible, conservation du dernier mode connu : %s", err)
+                    _LOGGER.debug("QMOD unavailable, keeping last known mode: %s", err)
 
-        # QPIRI : réglages stables, cache 10 min. Même logique de
-        # persistance du drapeau "stale" que QMOD ci-dessus.
         qpiri_due = (
             not self._qpiri_cache
             or (time.monotonic() - self._last_qpiri_fetch) > QPIRI_REFRESH_SECONDS
@@ -188,9 +156,9 @@ class AxpertCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.qpiri_stale = True
                 self.qpiri_last_error = str(err)
                 if not self._qpiri_cache:
-                    _LOGGER.warning("QPIRI indisponible (aucune valeur précédente) : %s", err)
+                    _LOGGER.warning("QPIRI unavailable (no previous value): %s", err)
                 else:
-                    _LOGGER.debug("QPIRI indisponible, conservation des derniers réglages : %s", err)
+                    _LOGGER.debug("QPIRI unavailable, keeping last known settings: %s", err)
 
         return {
             "qpigs": qpigs,
@@ -250,10 +218,6 @@ class AxpertCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self.async_request_refresh()
 
     async def async_send_raw(self, command: str) -> str:
-        """Diagnostic : envoie une commande brute et retourne la réponse
-        telle quelle. Utile pour tester un format de commande sur un
-        clone PI30 dont le firmware diverge du standard (ex: largeur de
-        padding numérique différente pour MCHGC/MUCHGC)."""
         return await self.hass.async_add_executor_job(self._client.send_raw, command)
 
     async def async_shutdown(self) -> None:
