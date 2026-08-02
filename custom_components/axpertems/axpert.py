@@ -227,6 +227,6 @@ def detect_baudrate(port: str, candidates: list[int]) -> int | None:
             with AxpertClient(port, baudrate=baudrate, timeout=1.5) as client:
                 client.get_qmod()
             return baudrate
-        except (AxpertCommunicationError, AxpertResponseError, AxpertCommandRejectedError):
+        except (AxpertCommunicationError, AxpertResponseError, AxpertCommandRejectedError, ValueError):
             continue
     return None
