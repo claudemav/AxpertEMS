@@ -33,8 +33,14 @@
           "restore_delay_tier1_seconds": "Tier 1 reconnection delay (seconds)",
           "restore_delay_tier2_seconds": "Tier 2 reconnection delay (seconds)",
           "restore_delay_tier3_seconds": "Tier 3 reconnection delay (seconds)"
+        },
+        "data_description": {
+          "night_start": "Format HH:MM, e.g. 23:00"
         }
       }
+    },
+    "error": {
+      "format_hhmm": "Invalid format — use HH:MM, e.g. 23:00"
     }
   },
   "entity": {
