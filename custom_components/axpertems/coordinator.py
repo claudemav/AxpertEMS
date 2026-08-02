@@ -72,17 +72,8 @@ class AxpertCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             parts.append(f"QPIRI stale ({self.qpiri_last_error or 'unknown'})")
         return "; ".join(parts) if parts else None
 
-    async def async_fetch_supported_currents(self) -> None:
-        try:
-            self.supported_max_charging_currents = await self.hass.async_add_executor_job(
-                self._client.get_supported_max_charging_currents
-            )
-            self.supported_max_utility_charging_currents = await self.hass.async_add_executor_job(
-                self._client.get_supported_max_utility_charging_currents
-            )
-        except AxpertError as err:
-            _LOGGER.warning("Current tiers not read (QMCHGCR/QMUCHGCR): %s", err)
-    
+    # -- découverte des paliers de courant (unique définition) -----------
+
     async def async_fetch_supported_currents(self) -> None:
         try:
             self.supported_max_charging_currents = await self.hass.async_add_executor_job(
@@ -94,9 +85,9 @@ class AxpertCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except AxpertError as err:
             _LOGGER.warning("Current tiers not read (QMCHGCR/QMUCHGCR): %s", err)
 
-        # Notifie les entités déjà créées (leurs options peuvent avoir
-        # été construites avec la liste de repli avant la fin de cette
-        # découverte, exécutée en tâche de fond après les plateformes).
+        # Notifie les entités déjà créées (select.py), dont les options
+        # peuvent avoir été construites avec la liste de repli avant la
+        # fin de cette découverte (exécutée en tâche de fond).
         self.async_update_listeners()
 
     def _fetch_supported_max_charging_currents(self) -> list[int]:
@@ -110,6 +101,8 @@ class AxpertCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._client.open()
             self._port_open = True
         return self._client.get_supported_max_utility_charging_currents()
+
+    # -- cycle de poll principal ------------------------------------------
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:
