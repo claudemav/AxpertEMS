@@ -1,0 +1,85 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to your Axpert inverter",
+        "data": {
+          "name": "Name",
+          "port": "Serial port (e.g. /dev/ttyUSB0)",
+          "baudrate": "Baud rate",
+          "scan_interval": "Poll interval (seconds)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to communicate with the inverter on this port. Check the cable, the port, and that no other program is using it at the same time.",
+      "cannot_detect_baudrate": "Could not detect the baud rate automatically. Select it manually if you know it (2400 is the most common for PI30 inverters)."
+    },
+    "abort": {
+      "already_configured": "This serial port is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Decision engine thresholds",
+        "data": {
+          "battery_soc_threshold": "Comfortable battery SOC (%)",
+          "battery_critical_threshold": "Critical battery SOC — Max Battery mode only yields to grid below this (%)",
+          "deficit_delay_on_minutes": "Delay before confirming a solar deficit (minutes)",
+          "deficit_delay_off_minutes": "Delay before confirming a deficit has ended (minutes)",
+          "night_start": "Night guaranteed from (HH:MM, safety net in addition to real sunset)",
+          "battery_soc_threshold_shedding": "Battery SOC below which daytime load shedding is allowed (%)",
+          "restore_delay_tier1_seconds": "Tier 1 reconnection delay (seconds)",
+          "restore_delay_tier2_seconds": "Tier 2 reconnection delay (seconds)",
+          "restore_delay_tier3_seconds": "Tier 3 reconnection delay (seconds)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "grid_voltage": { "name": "Grid Voltage" },
+      "output_voltage": { "name": "Output Voltage" },
+      "output_power": { "name": "Output Power" },
+      "output_load": { "name": "Output Load" },
+      "battery_voltage": { "name": "Battery Voltage" },
+      "battery_capacity": { "name": "Battery Capacity" },
+      "battery_charging_current": { "name": "Battery Charging Current" },
+      "battery_discharge_current": { "name": "Battery Discharge Current" },
+      "pv_voltage": { "name": "PV Voltage" },
+      "pv_current": { "name": "PV Current" },
+      "pv_power": { "name": "PV Power" },
+      "inverter_temperature": { "name": "Temperature" },
+      "device_mode": { "name": "Mode" },
+      "config_soc_threshold": { "name": "Config SOC Threshold" },
+      "config_battery_critical_threshold": { "name": "Config Battery Critical Threshold" },
+      "config_night_start": { "name": "Config Night Start" },
+      "config_deficit_delay_on": { "name": "Config Deficit Delay On" },
+      "config_deficit_delay_off": { "name": "Config Deficit Delay Off" },
+      "config_soc_threshold_shedding": { "name": "Config SOC Threshold Shedding" },
+      "config_restore_delay_tier1": { "name": "Config Restore Delay Tier 1" },
+      "config_restore_delay_tier2": { "name": "Config Restore Delay Tier 2" },
+      "config_restore_delay_tier3": { "name": "Config Restore Delay Tier 3" },
+      "consecutive_failures": { "name": "Consecutive Failures" },
+      "last_success": { "name": "Last Success" },
+      "last_error": { "name": "Last Error" },
+      "partial_error": { "name": "Partial Error" }
+    },
+    "binary_sensor": {
+      "ac_charging": { "name": "AC Charging" },
+      "scc_charging": { "name": "SCC Charging" },
+      "load_on": { "name": "Load On" },
+      "communication": { "name": "Communication" },
+      "data_stale": { "name": "Data Stale" },
+      "qmod_stale": { "name": "QMOD Stale" },
+      "qpiri_stale": { "name": "QPIRI Stale" }
+    },
+    "select": {
+      "output_mode": { "name": "Output Mode" },
+      "charger_priority": { "name": "Charger Priority" },
+      "max_charging_current": { "name": "Max Charging Current" },
+      "max_utility_charging_current": { "name": "Max Utility Charging Current" }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+send_raw_command:
+  name: Send raw command (diagnostic)
+  description: >
+    Sends a raw PI30 command to the inverter and returns the response
+    as-is. Command is normalized (trimmed, uppercased) and validated:
+    ASCII letters/digits only, no CR/LF or control characters, max 32
+    characters. Useful to identify a divergent command format on a
+    clone (e.g. MCHGC40 vs MCHGC010).
+  fields:
+    device_id:
+      name: Inverter
+      description: Target inverter (only required if you have more than one AxpertEMS device configured)
+      required: false
+      selector:
+        device:
+          integration: axpertems
+    command:
+      name: Command
+      description: "PI30 command without CRC or CR (e.g. MCHGC40, QPIGS, QMCHGCR)"
+      required: true
+      example: "MCHGC40"
+      selector:
+        text:
