@@ -219,12 +219,13 @@ def list_available_ports() -> list[str]:
 
 
 def detect_baudrate(port: str, candidates: list[int]) -> int | None:
-    """Sonde chaque vitesse candidate en lecture seule (QMOD) et retourne
-    la premiere qui repond avec succes."""
+    """Sonde chaque vitesse candidate en lecture seule (QMOD, avec
+    validation du contenu parsé, pas juste du CRC) et retourne la
+    premiere qui repond avec succes."""
     for baudrate in candidates:
         try:
             with AxpertClient(port, baudrate=baudrate, timeout=1.5) as client:
-                client.execute("QMOD", retries=0)
+                client.get_qmod()
             return baudrate
         except (AxpertCommunicationError, AxpertResponseError, AxpertCommandRejectedError):
             continue
