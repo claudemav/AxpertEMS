@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 import voluptuous as vol
@@ -40,6 +41,8 @@ _LOGGER = logging.getLogger(__name__)
 SUPPORTED_BAUDRATES = [2400, 4800, 9600, 19200]
 AUTO_DETECT_BAUDRATE = "auto"
 
+_HHMM_PATTERN = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
+
 
 def _test_connection(port: str, baudrate: int) -> None:
     with AxpertClient(port, baudrate=baudrate) as client:
@@ -47,10 +50,6 @@ def _test_connection(port: str, baudrate: int) -> None:
 
 
 def _build_user_schema(detected_ports: list[str]) -> vol.Schema:
-    # selector "select" avec custom_value=True : propose les ports
-    # détectés en liste déroulante, tout en permettant une saisie libre
-    # (utile si le port souhaité n'apparaît pas, ex: chemin /dev/serial/
-    # by-id/... non toujours retourné par list_ports).
     port_selector = (
         selector.SelectSelector(
             selector.SelectSelectorConfig(
@@ -147,10 +146,15 @@ class AxpertEMSOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         current = {**DEFAULT_OPTIONS, **self.config_entry.options}
+        errors: dict[str, str] = {}
 
         if user_input is not None:
-            new_options = {**self.config_entry.options, **user_input}
-            return self.async_create_entry(title="", data=new_options)
+            night_start = user_input.get(CONF_NIGHT_START, current[CONF_NIGHT_START])
+            if not _HHMM_PATTERN.match(night_start):
+                errors[CONF_NIGHT_START] = "format_hhmm"
+            else:
+                new_options = {**self.config_entry.options, **user_input}
+                return self.async_create_entry(title="", data=new_options)
 
         schema = vol.Schema(
             {
@@ -168,7 +172,7 @@ class AxpertEMSOptionsFlow(config_entries.OptionsFlow):
                 ): vol.All(vol.Coerce(int), vol.Range(min=0, max=120)),
                 vol.Optional(
                     CONF_NIGHT_START, default=current[CONF_NIGHT_START]
-                ): vol.Match(r"^([01]\d|2[0-3]):([0-5]\d)$", msg="format_hhmm"),
+                ): str,
                 vol.Optional(
                     CONF_SOC_THRESHOLD_SHEDDING, default=current[CONF_SOC_THRESHOLD_SHEDDING]
                 ): vol.All(vol.Coerce(float), vol.Range(min=0, max=100)),
@@ -183,4 +187,4 @@ class AxpertEMSOptionsFlow(config_entries.OptionsFlow):
                 ): vol.All(vol.Coerce(int), vol.Range(min=0, max=3600)),
             }
         )
-        return self.async_show_form(step_id="init", data_schema=schema)
+        return self.async_show_form(step_id="init", data_schema=schema, errors=errors)
