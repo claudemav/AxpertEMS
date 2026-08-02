@@ -4,9 +4,10 @@
       "user": {
         "title": "Connexion à l'onduleur Axpert",
         "data": {
+          "name": "Nom",
           "port": "Port série (ex: /dev/ttyUSB0)",
           "baudrate": "Vitesse (bauds)",
-          "scan_interval": "Intervalle de rafraîchissement (secondes)"
+          "scan_interval": "Intervalle de scrutation (secondes)"
         }
       }
     },
@@ -20,49 +21,64 @@
   "options": {
     "step": {
       "init": {
-        "menu_options": {
-          "thresholds": "Seuils (SOC, délais, horaires)",
-          "loads_menu": "Charges pilotées (délestage)"
-        }
-      },
-      "thresholds": {
         "title": "Seuils du moteur de décision",
         "data": {
           "battery_soc_threshold": "SOC batterie confortable (%)",
-          "battery_critical_threshold": "SOC batterie critique — Mode Max Batterie ne cède à E2C qu'en dessous (%)",
-          "deficit_delay_on_minutes": "Délai avant de confirmer un déficit (minutes)",
+          "battery_critical_threshold": "SOC batterie critique — Mode Max Batterie ne cède au réseau qu'en dessous (%)",
+          "deficit_delay_on_minutes": "Délai avant de confirmer un déficit solaire (minutes)",
           "deficit_delay_off_minutes": "Délai avant de confirmer la fin d'un déficit (minutes)",
-          "night_start": "Nuit certaine à partir de (HH:MM, filet de sécurité en plus du coucher de soleil réel)"
-        }
-      },
-      "loads_menu": {
-        "menu_options": {
-          "add_load": "Ajouter une charge",
-          "remove_load": "Retirer une charge",
-          "init": "Retour"
-        }
-      },
-      "add_load": {
-        "title": "Ajouter une charge délestable",
-        "data": {
-          "entity_id": "Interrupteur (switch)",
-          "name": "Nom affiché",
-          "tier": "Palier (1 = coupé en premier, 2 = coupé seulement si insuffisant)",
-          "restore_delay": "Délai avant réenclenchement (secondes)"
-        }
-      },
-      "remove_load": {
-        "title": "Retirer une charge",
-        "data": {
-          "entity_id": "Charge à retirer"
+          "night_start": "Nuit garantie à partir de (HH:MM, filet de sécurité en plus du coucher de soleil réel)",
+          "battery_soc_threshold_shedding": "SOC batterie sous lequel le délestage diurne est autorisé (%)",
+          "restore_delay_tier1_seconds": "Délai de réenclenchement Palier 1 (secondes)",
+          "restore_delay_tier2_seconds": "Délai de réenclenchement Palier 2 (secondes)",
+          "restore_delay_tier3_seconds": "Délai de réenclenchement Palier 3 (secondes)"
         }
       }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "grid_voltage": { "name": "Tension Réseau" },
+      "output_voltage": { "name": "Tension Sortie" },
+      "output_power": { "name": "Puissance Sortie" },
+      "output_load": { "name": "Charge Sortie" },
+      "battery_voltage": { "name": "Tension Batterie" },
+      "battery_capacity": { "name": "Capacité Batterie" },
+      "battery_charging_current": { "name": "Courant Charge Batterie" },
+      "battery_discharge_current": { "name": "Courant Décharge Batterie" },
+      "pv_voltage": { "name": "Tension PV" },
+      "pv_current": { "name": "Courant PV" },
+      "pv_power": { "name": "Puissance PV" },
+      "inverter_temperature": { "name": "Température" },
+      "device_mode": { "name": "Mode" },
+      "config_soc_threshold": { "name": "Config Seuil SOC" },
+      "config_battery_critical_threshold": { "name": "Config Seuil SOC Critique" },
+      "config_night_start": { "name": "Config Début Nuit" },
+      "config_deficit_delay_on": { "name": "Config Délai Déficit On" },
+      "config_deficit_delay_off": { "name": "Config Délai Déficit Off" },
+      "config_soc_threshold_shedding": { "name": "Config Seuil SOC Délestage" },
+      "config_restore_delay_tier1": { "name": "Config Délai Restauration Palier 1" },
+      "config_restore_delay_tier2": { "name": "Config Délai Restauration Palier 2" },
+      "config_restore_delay_tier3": { "name": "Config Délai Restauration Palier 3" },
+      "consecutive_failures": { "name": "Échecs Consécutifs" },
+      "last_success": { "name": "Dernier Succès" },
+      "last_error": { "name": "Dernière Erreur" },
+      "partial_error": { "name": "Erreur Partielle" }
     },
-    "error": {
-      "already_exists": "Cette charge est déjà dans la liste."
+    "binary_sensor": {
+      "ac_charging": { "name": "Charge Réseau" },
+      "scc_charging": { "name": "Charge Solaire" },
+      "load_on": { "name": "Charge Active" },
+      "communication": { "name": "Communication" },
+      "data_stale": { "name": "Données Anciennes" },
+      "qmod_stale": { "name": "QMOD Ancien" },
+      "qpiri_stale": { "name": "QPIRI Ancien" }
     },
-    "abort": {
-      "no_loads": "Aucune charge configurée à retirer."
+    "select": {
+      "output_mode": { "name": "Mode de Sortie" },
+      "charger_priority": { "name": "Priorité de Charge" },
+      "max_charging_current": { "name": "Courant de Charge Max" },
+      "max_utility_charging_current": { "name": "Courant de Charge Réseau Max" }
     }
   }
 }
