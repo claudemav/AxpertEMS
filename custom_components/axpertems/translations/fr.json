@@ -33,8 +33,14 @@
           "restore_delay_tier1_seconds": "Délai de réenclenchement Palier 1 (secondes)",
           "restore_delay_tier2_seconds": "Délai de réenclenchement Palier 2 (secondes)",
           "restore_delay_tier3_seconds": "Délai de réenclenchement Palier 3 (secondes)"
+        },
+        "data_description": {
+          "night_start": "Format HH:MM, ex: 23:00"
         }
       }
+    },
+    "error": {
+      "format_hhmm": "Format invalide — utilise HH:MM, ex: 23:00"
     }
   },
   "entity": {
